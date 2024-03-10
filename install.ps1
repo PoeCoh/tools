@@ -91,8 +91,8 @@ if (-not $paths.Contains("$zls\zig-out\bin")) {
     $Env:Path = $Env:Path + ';' + "$zls\zig-out\bin" + ';'
 }
 Write-Host -Object "Creating environment variables ZIG and ZLS"
-[Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
 [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
+[Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
 if ($Test.IsPresent) {
     Write-Host -Object "Running zig build test"
     Start-Process -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
