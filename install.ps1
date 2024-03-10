@@ -3,7 +3,7 @@
 # to pass flags to the script, append them like this:
 # iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) } -Test -Legacy"
 # based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
-# Sets environment variables ZIG and ZLS to thier respective repositories
+# Sets environment variables ZIG and ZLS to their respective repositories
 [CmdletBinding()]
 param (
     [parameter()]
