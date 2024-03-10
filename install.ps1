@@ -33,6 +33,7 @@ $content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
 $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
 $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
 if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
+Write-Host -Object "Downloading dev kit"
 Invoke-WebRequest -Uri $url -OutFile "$temp\devkit.zip"
 Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force
 Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer }).FullName -NewName "devkit"
