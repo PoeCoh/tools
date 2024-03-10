@@ -1,7 +1,7 @@
 # clones zig and zls git and builds from source
 # iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }"
 # to pass flags to the script, append them like this:
-# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }" -Test -Legacy
+# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) -Test -Legacy }"
 # based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
 [CmdletBinding()]
 param (
