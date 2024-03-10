@@ -1,7 +1,6 @@
-# use directly with
-# iex "& {$(irm 'https://raw.githubusercontent.com/PoeCoh/tools/zig/install.ps1')}"
-# or
-# iex "& {$(irm 'git.poecoh.com/tools/zig/install.ps1')}"
+# clones zig and zls git and builds from source
+# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }"
+# haven't tested on Windows PowerShell yet.
 [CmdletBinding()]
 param (
     [parameter()]
@@ -48,5 +47,5 @@ if (-not $paths.Contains("$zig\stage3\bin")) {
     $paths += "$zig\stage3\bin"
     [System.Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
 }
-Start-Process -FilePath "git" -ArgumentList "clone", "https://gitbub.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
+Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
 Start-Process -FilePath "$zig\stage3\bin\zig.exe" -ArgumentList 'build', '-Doptimize=ReleaseSafe' -Wait -NoNewWindow -WorkingDirectory $zls
