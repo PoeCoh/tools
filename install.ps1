@@ -3,6 +3,7 @@
 # to pass flags to the script, append them like this:
 # iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) } -Test -Legacy"
 # based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
+# Sets environment variables ZIG and ZLS to thier respective repositories
 [CmdletBinding()]
 param (
     [parameter()]
@@ -27,6 +28,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/ziglang/zig" -Wait -NoNewWindow -WorkingDirectory $ziglang
+[Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
 $content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
 $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
 $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
@@ -76,6 +78,7 @@ if (-not $paths.Contains("$zig\stage3\bin")) {
 }
 Write-Host -Object "Building zls from source"
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
+[System.Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
 Start-Process -FilePath "$zig\stage3\bin\zig.exe" -ArgumentList 'build', '-Doptimize=ReleaseSafe' -Wait -NoNewWindow -WorkingDirectory $zls
 Write-Host -Object "Adding zls to path"
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
