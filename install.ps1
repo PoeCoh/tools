@@ -1,4 +1,4 @@
-# iex {$(iwr https://raw.githubusercontent.com/PoeCoh/tools/zig/install.ps1)}
+# iex "& {$(iwr 'https://raw.githubusercontent.com/PoeCoh/tools/zig/install.ps1')}
 [CmdletBinding()]
 param (
     [parameter()]
