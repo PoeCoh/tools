@@ -1,10 +1,12 @@
 # clones zig and zls git and builds from source
 # iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }"
-# haven't tested on Windows PowerShell yet.
+# can pass -Test to run zig build test with
+# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }" -Test
+# haven't tested on Windows PowerShell yet, only pwsh.
 [CmdletBinding()]
 param (
     [parameter()]
-    [string]$Path = "./"
+    [switch]$Test 
 )
 
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
@@ -42,11 +44,17 @@ if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force
     Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -ne 'devkit' }).FullName -NewName "release"
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
+    Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 }
 $paths = [System.Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
 if (-not $paths.Contains("$zig\stage3\bin")) {
     $paths += "$zig\stage3\bin"
+    $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
     [System.Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
 }
+Remove-Item -Path $temp -Recurse -Force
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
 Start-Process -FilePath "$zig\stage3\bin\zig.exe" -ArgumentList 'build', '-Doptimize=ReleaseSafe' -Wait -NoNewWindow -WorkingDirectory $zls
+if ($Test.IsPresent) {
+    Start-Process -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
+}
