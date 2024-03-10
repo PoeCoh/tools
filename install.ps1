@@ -1,19 +1,28 @@
 # clones zig and zls git and builds from source
 # iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }"
-# can pass -Test to run zig build test with
-# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }" -Test
-# haven't tested on Windows PowerShell yet.
+# to pass flags to the script, append them like this:
+# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }" -Test -Legacy
 # based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
 [CmdletBinding()]
 param (
     [parameter()]
-    [switch]$Test 
+    [switch]$Test,
+
+    [parameter()]
+    [switch]$Legacy
 )
 
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
 $temp = "$Env:TEMP\ziglang"
+
+if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
+    Write-Host -Object "Legacy powershell takes an eternity to download, please install and use powershell 7+."
+    # No, really, legacy was shockingly slow.
+    Write-Host -Object "If you must use legacy powershell, add -Legacy to the command to ignore this."
+    exit 1
+}
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/ziglang/zig" -Wait -NoNewWindow -WorkingDirectory $ziglang
@@ -40,8 +49,12 @@ Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait 
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, using latest release to build"
     $response = Invoke-WebRequest -Uri "https://ziglang.org/download#release-master"
-    $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
-    $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
+    if ($PSVersionTable.PSVersion.Major -eq 5) {
+        $url = $response.Links.Where({$_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64'}).href
+    } else {
+        $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
+        $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
+    }
     Invoke-WebRequest -Uri $url -OutFile "$temp\release.zip"
     Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force
     Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -ne 'devkit' }).FullName -NewName "release"
