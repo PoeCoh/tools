@@ -2,7 +2,8 @@
 # iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }"
 # can pass -Test to run zig build test with
 # iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }" -Test
-# haven't tested on Windows PowerShell yet, only pwsh.
+# haven't tested on Windows PowerShell yet.
+# based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
 [CmdletBinding()]
 param (
     [parameter()]
@@ -24,6 +25,7 @@ Invoke-WebRequest -Uri $url -OutFile "$temp\devkit.zip"
 Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force
 Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer }).FullName -NewName "devkit"
 Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
+Write-Host -Object "Building zig from source"
 $argList = @(
     'build'
     '-p'
@@ -36,7 +38,7 @@ $argList = @(
 )
 Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
-    Write-Host -Object "Build failed, downloading release version"
+    Write-Host -Object "Build failed, using latest release to build"
     $response = Invoke-WebRequest -Uri "https://ziglang.org/download#release-master"
     $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
     $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
@@ -46,15 +48,30 @@ if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 }
-$paths = [System.Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
+Remove-Item -Path $temp -Recurse -Force
+if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
+    Write-Host -Object "Build failed, exiting"
+    exit 1
+}
+Write-Host -Object "Build successful, adding to path"
+$paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
 if (-not $paths.Contains("$zig\stage3\bin")) {
     $paths += "$zig\stage3\bin"
+    [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
     $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
-    [System.Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
 }
-Remove-Item -Path $temp -Recurse -Force
+Write-Host -Object "Building zls from source"
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
 Start-Process -FilePath "$zig\stage3\bin\zig.exe" -ArgumentList 'build', '-Doptimize=ReleaseSafe' -Wait -NoNewWindow -WorkingDirectory $zls
+Write-Host -Object "Adding zls to path"
+$paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
+if (-not $paths.Contains("$zls\zig-out\bin")) {
+    $paths += "$zls\zig-out\bin"
+    [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
+    $Env:Path = $Env:Path + ';' + "$zls\zig-out\bin" + ';'
+}
 if ($Test.IsPresent) {
+    Write-Host -Object "Running zig build test"
     Start-Process -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
 }
+Write-Host -Object "Done" -ForegroundColor Green
