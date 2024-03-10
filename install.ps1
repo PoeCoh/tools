@@ -34,6 +34,7 @@ $argList = @(
 )
 Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
+    Write-Host -Object "Build failed, downloading release version"
     $response = Invoke-WebRequest -Uri "https://ziglang.org/download#release-master"
     $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
     $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
