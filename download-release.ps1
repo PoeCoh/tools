@@ -25,7 +25,12 @@ try {
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
     if ($Path.IsPresent) {
-        
+        $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
+        if (-not $paths.Contains("$temp\release")) {
+            $paths += "$temp\release"
+            [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
+            $Env:Path = $Env:Path + ';' + "$temp\release" + ';'
+        }
     }
 }
 catch {
