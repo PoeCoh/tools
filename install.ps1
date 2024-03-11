@@ -37,7 +37,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
     Write-Host -Object "Legacy powershell takes drastically longer, please install and use powershell 7+."
     # No, really, legacy was shockingly slow.
     Write-Host -Object "If you must use legacy powershell, add -Legacy to the command to ignore this."
-    Write-Host -Object 'iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) } -Legacy"' -ForegroundColor DarkYellow
+    Write-Host -Object 'iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Legacy"' -ForegroundColor DarkYellow
     return
 }
 
