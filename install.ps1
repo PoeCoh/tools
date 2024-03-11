@@ -38,6 +38,9 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
     return
 }
 
+$result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)} $(if (-not $FromSource.IsPresent) { '-Path' })"
+if (-not $result) { throw "Failed to download release." }
+
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
 if ($FromSource.IsPresent) {
     if (Test-Path -Path "$zig\.git") {
@@ -62,18 +65,10 @@ if ($FromSource.IsPresent) {
     )
     if ($ReleaseSafe.IsPresent) { $argList += '-Doptimize=ReleaseSafe' }
     if (Test-Path -Path "$zig\stage3\bin\zig.exe") { Remove-Item -Path "$zig\stage3\bin\zig.exe" -Force }
-    $building = Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -WorkingDirectory $zig -PassThru
+    $building = Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -WorkingDirectory $zig -PassThru
     $building.WaitForExit()
     Write-Debug -Message "Exit Code: $($building.ExitCode)"
-    if ($building.ExitCode -ne 0) {
-        Write-Debug -Message "Build failed, using latest release to build"
-        $result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"
-        if (-not $result) { throw "Failed to download release." }
-        $building = Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -WorkingDirectory $zig -PassThru
-        $building.WaitForExit()
-        Write-Debug -Message "Exit Code: $($building.ExitCode)"
-    }
-    if ($building.ExitCode -ne 0) { throw "Zig build failed." }
+    if ($building.ExitCode -ne 0) { throw "Failed to build zig." }
     Write-Debug -Message "Build successful"
     $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
     if (-not $paths.Contains("$zig\stage3\bin")) {
@@ -83,9 +78,6 @@ if ($FromSource.IsPresent) {
         $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
     }
     [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
-} else {
-    $result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)} -Path"
-    if (-not $result) { throw "Failed to download release." }
 }
 $zigPath = if ($FromSource.IsPresent) { "$zig\stage3\bin\zig.exe" } else { "$temp\release\zig.exe" }
 if (Test-Path -Path "$zls\.git") {
