@@ -36,7 +36,6 @@ $zls = "$ziglang\zls"
 $pwshExe = Get-ChildItem -Path $PSHOME |
     Where-Object -FilterScript { $_.Name -match 'pwsh\.exe|powershell\.exe' } |
     Select-Object -ExpandProperty FullName -First 1
-Write-Host -Object "Using $pwshExe"
 
 if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
     Write-Host -Object "Legacy powershell takes drastically longer, please install and use powershell 7+."
@@ -58,9 +57,7 @@ $dlReleaseSplat = @{
         "-NoExit"
         "-Command 
         Set-Location -Path $ziglang;
-        iex ""& {
-            `$(irm git.poecoh.com/tools/zig/download-release.ps1)
-        } $(if (-not $Source.IsPresent) { "-Path" })"";
+        iex ""& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"";
         "
     )
 }
