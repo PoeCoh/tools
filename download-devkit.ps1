@@ -18,6 +18,7 @@ try {
     Rename-Item -Path $devKit -NewName "devkit"
     Get-ChildItem -Path $ziglang -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
+    Write-Host -Object 'Done'
 }
 catch {
     return $false

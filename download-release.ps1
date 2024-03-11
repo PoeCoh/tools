@@ -34,6 +34,7 @@ try {
             $Env:Path = $Env:Path + ';' + "$ziglang\release" + ';'
         }
     }
+    Write-Host -Object 'Done'
     return $true
 }
 catch {
