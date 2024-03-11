@@ -2,27 +2,20 @@
 iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)}"
 
 based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
-Sets environment variables ZIG and ZLS to thier respective repositories
-This script doubles as an update script
 
 to pass flags to the script, append them like this:
-iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Source -Test -Legacy -ReleaseSafe -Debug"
+iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Source -ReleaseSafe -Debug"
 
-I split the download sections off into their own thing so they can be used independently
 #>
 [CmdletBinding()]
 param (    
     # Builds zig from source
     [parameter()]
     [switch]$Source,
-    
+
     # Passes ReleaseSafe to zig build
     [parameter()]
-    [switch]$ReleaseSafe,
-    
-    # Runs zig build test
-    [parameter()]
-    [switch]$Test
+    [switch]$ReleaseSafe
 )
 
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
@@ -49,13 +42,6 @@ $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
         Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
     Resolve-Path -Path "$folder\.." | Rename-Item -NewName 'release'
     Remove-Item -Path "$using:ziglang\release.zip" -Recurse -Force
-    # if (-not $using:Source.IsPresent) {
-    #     $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
-    #     if (-not $paths.Contains($ziglang + '\release')) {
-    #         $paths += $ziglang + '\release'
-    #         [Environment]::SetEnvironmentVariable('Path', $($paths -join ';') + ';', 'User') | Out-Null
-    #     }
-    # }
 }
 
 # Start cloning/pulling zig
@@ -163,7 +149,6 @@ $buildArgs = @{
 $building = Start-Process @buildArgs -Wait -NoNewWindow -PassThru
 $building.WaitForExit()
 if ($building.ExitCode -ne 0) { throw "Failed building zls." }
-Write-Host -Object "Done"
 
 # add paths
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
@@ -186,13 +171,3 @@ if ($Source.IsPresent -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVar
 Write-Host -Object "`$Env:ZIG -> '$zig'"
 if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null }
 Write-Host -Object "`$Env:ZLS -> '$zls'"
-
-# Run zig build test
-# if ($Test.IsPresent) {
-#     Write-Host -Object "Running zig build test"
-#     Start-Procenss -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
-# }
-# Write-Host -Object "Done" -ForegroundColor Green
-
-# Open ziglang directory
-# Start-Process -FilePath 'explorer' -ArgumentList $ziglang
