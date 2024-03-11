@@ -32,7 +32,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
     # No, really, legacy was shockingly slow.
     Write-Host -Object "If you must use legacy powershell, add -Legacy to the command to ignore this."
     Write-Host -Object 'iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) } -Legacy"' -ForegroundColor DarkYellow
-    exit 1
+    return
 }
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
@@ -44,7 +44,7 @@ if (Test-Path -Path "$zig\.git") {
 $result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -RepoPath '$zig'"
 if (-not $result) {
     Write-Host -Object "Failed to download devkit, exiting"
-    exit 1
+    return
 }
 Write-Debug -Message "Building zig from source"
 $argList = @(
@@ -69,30 +69,29 @@ if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     $result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"
     if (-not $result) {
         Write-Host -Object "Failed to download release, exiting"
-        exit 1
+        return
     }
     Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 }
-Remove-Item -Path $temp -Recurse -Force
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, exiting cleaning up and exiting"
-    exit 1
+    return
 }
-Write-Host -Object "Build successful, adding to path"
+Write-Debug -Message "Build successful, adding to path"
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
 if (-not $paths.Contains("$zig\stage3\bin")) {
     $paths += "$zig\stage3\bin"
     [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
     $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
 }
-Write-Host -Object "Building zls from source"
+Write-Debug -Message "Building zls from source"
 if (Test-Path -Path "$zls\.git") {
     Start-Process -FilePath "git" -ArgumentList "pull", "origin" -Wait -NoNewWindow -WorkingDirectory $zls
 } else {
     Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
 }
 Start-Process -FilePath "$zig\stage3\bin\zig.exe" -ArgumentList 'build', '-Doptimize=ReleaseSafe' -Wait -NoNewWindow -WorkingDirectory $zls
-Write-Host -Object "Adding zls to path"
+Write-Debug -Message "Adding zls to path"
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
 if (-not $paths.Contains("$zls\zig-out\bin")) {
     $paths += "$zls\zig-out\bin"
@@ -104,7 +103,7 @@ Write-Debug -Message "Creating environment variables ZIG and ZLS"
 [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
 if ($Test.IsPresent) {
     Write-Host -Object "Running zig build test"
-    Start-Process -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
+    Start-Procenss -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
 }
 Write-Host -Object "Done" -ForegroundColor Green
-Exit 0
+return
