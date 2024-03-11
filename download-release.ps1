@@ -1,7 +1,13 @@
 # iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"
+# If you just want to download and use the release directly, you can add -Path
+# iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)} -Path"
+# to add the folder to your user path variable
 # Downloads newest release build to $Env:TEMP\ziglang\release
 [CmdletBinding()]
-param ()
+param (
+    [parameter()]
+    [switch]$Path
+)
 try {
     $temp = "$Env:TEMP\ziglang"
     if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
@@ -18,6 +24,9 @@ try {
     Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -match 'zig' }).FullName -NewName "release"
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
+    if ($Path.IsPresent) {
+        
+    }
 }
 catch {
     return $false
