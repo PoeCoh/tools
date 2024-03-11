@@ -64,7 +64,7 @@ $dlReleaseArgs = @{
         "
     )
 }
-$dlRelease = Start-Process $dlReleaseArgs -PassThru
+$dlRelease = Start-Process @dlReleaseArgs -PassThru
 
 return
 # Start cloning/pulling zig
