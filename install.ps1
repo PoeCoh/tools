@@ -43,7 +43,6 @@ if (Test-Path -Path "$zig\.git") {
 }
 $result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -RepoPath '$zig'"
 if (-not $result) {
-    Remove-Item -Path $temp -Recurse -Force
     Write-Host -Object "Failed to download devkit, exiting"
     exit 1
 }
@@ -62,8 +61,8 @@ if ($ReleaseSafe.IsPresent) { $argList += '-Doptimize=ReleaseSafe' }
 Remove-Item -Path "$zig\stage3\bin\zig.exe" -Force
 # Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 Set-Location -Path $zig
-& "$temp\devkit\bin\zig.exe $($argList -join ' ')"
-Write-Host -Object "TEsting: $?" -ForegroundColor Yellow
+& "$temp\devkit\bin\zig.exe" '$($argList -join ' ')"'
+Write-Host -Object "Testing: $?" -ForegroundColor Yellow
 # I need a reliable way to tell if this failed, but it seems like this always returns successful
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, using latest release to build"
