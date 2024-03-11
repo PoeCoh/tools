@@ -55,7 +55,7 @@ if ($Source.IsPresent) {
     }
     $result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -RepoPath '$zig'"
     if (-not $result) { throw "Failed to download devkit." }
-    Write-Debug -Message "Building zig from source"
+    Write-Host -Object "Building Zig..."
     $argList = @(
         'build'
         '-p'
@@ -72,7 +72,7 @@ if ($Source.IsPresent) {
     $building.WaitForExit()
     Write-Debug -Message "Exit Code: $($building.ExitCode)"
     if ($building.ExitCode -ne 0) { throw "Failed to build zig." }
-    Write-Debug -Message "Build successful"
+    Write-Host -Object "Done"
     $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
     if (-not $paths.Contains("$zig\stage3\bin")) {
         Write-Debug -Message "Adding zig to path"
@@ -90,10 +90,11 @@ if (Test-Path -Path "$zls\.git") {
     Write-Debug -Message "Cloning zls"
     Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
 }
-Write-Debug -Message "Building zls from source"
+Write-Host -Object "Building zls..."
 $building = Start-Process -FilePath $zigPath -ArgumentList 'build', '-Doptimize=ReleaseSafe' -WorkingDirectory $zls -PassThru
 $building.WaitForExit()
 Write-Debug -Message "Exit Code: $($building.ExitCode)"
+Write-Host -Object "Done"
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
 if (-not $paths.Contains("$zls\zig-out\bin")) {
     Write-Debug -Message "Adding zls to path"
