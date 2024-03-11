@@ -66,6 +66,7 @@ $dlReleaseArgs = @{
 }
 $dlRelease = Start-Process $dlReleaseArgs -PassThru
 
+return
 # Start cloning/pulling zig
 if ($Source.IsPresent) {
     $cloneZig = (Test-Path -Path "$zig\.git") -eq $false
