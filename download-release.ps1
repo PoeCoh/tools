@@ -10,9 +10,9 @@ param (
 )
 try {
     Write-Host -Object "Downloading release build"
-    $temp = "$Env:TEMP\ziglang"
-    if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
-    if (Test-Path -Path "$temp\release") { Remove-Item -Path "$temp\release" -Recurse -Force }
+    $ziglang = "$Env:LOCALAPPDATA\ziglang"
+    if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
+    if (Test-Path -Path "$ziglang\release") { Remove-Item -Path "$ziglang\release" -Recurse -Force }
     $response = Invoke-WebRequest -Uri "https://ziglang.org/download#release-master"
     if ($PSVersionTable.PSVersion.Major -eq 5) {
         $url = $response.Links.Where({$_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64'}).href
@@ -20,19 +20,19 @@ try {
         $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
         $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
     }
-    Invoke-WebRequest -Uri $url -OutFile "$temp\release.zip"
-    $release = Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force -PassThru
+    Invoke-WebRequest -Uri $url -OutFile "$ziglang\release.zip"
+    $release = Expand-Archive -Path "$ziglang\release.zip" -DestinationPath $ziglang -Force -PassThru
     $release = $release.FullName.where({$_ -match 'zig\.exe'})
     $release = Resolve-Path -Path "$release\.."
     Rename-Item -Path $release -NewName "release"
-    Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
+    Get-ChildItem -Path $ziglang -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
     if ($Path.IsPresent) {
         $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
-        if (-not $paths.Contains("$temp\release")) {
-            $paths += "$temp\release"
+        if (-not $paths.Contains("$ziglang\release")) {
+            $paths += "$ziglang\release"
             [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
-            $Env:Path = $Env:Path + ';' + "$temp\release" + ';'
+            $Env:Path = $Env:Path + ';' + "$ziglang\release" + ';'
         }
     }
 }

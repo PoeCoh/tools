@@ -6,7 +6,7 @@ Sets environment variables ZIG and ZLS to thier respective repositories
 This script doubles as an update script
 
 to pass flags to the script, append them like this:
-iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -FromSource -Test -Legacy -ReleaseSafe -Debug"
+iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Source -Test -Legacy -ReleaseSafe -Debug"
 
 I split the download sections off into their own thing so they can be used independently
 #>
@@ -22,13 +22,12 @@ param (
     [switch]$Legacy,
 
     [parameter()]
-    [switch]$FromSource
+    [switch]$Source
 )
 
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
-$temp = "$Env:TEMP\ziglang"
 
 if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
     Write-Host -Object "Legacy powershell takes drastically longer, please install and use powershell 7+."
@@ -38,11 +37,11 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
     return
 }
 
-$result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)} $(if (-not $FromSource.IsPresent) { '-Path' })"
+$result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)} $(if (-not $Source.IsPresent) { '-Path' })"
 if (-not $result) { throw "Failed to download release." }
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
-if ($FromSource.IsPresent) {
+if ($Source.IsPresent) {
     if (Test-Path -Path "$zig\.git") {
         Write-Debug -Message "Updating zig"
         Start-Process -FilePath "git" -ArgumentList "pull", "origin" -Wait -NoNewWindow -WorkingDirectory $zig
@@ -57,7 +56,7 @@ if ($FromSource.IsPresent) {
         'build'
         '-p'
         'stage3'
-        "--search-prefix $temp\devkit"
+        "--search-prefix $ziglang\devkit"
         '--zig-lib-dir lib'
         '-Dstatic-llvm'
         '-Duse-zig-libcxx'
@@ -65,7 +64,7 @@ if ($FromSource.IsPresent) {
     )
     if ($ReleaseSafe.IsPresent) { $argList += '-Doptimize=ReleaseSafe' }
     if (Test-Path -Path "$zig\stage3\bin\zig.exe") { Remove-Item -Path "$zig\stage3\bin\zig.exe" -Force }
-    $building = Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -WorkingDirectory $zig -PassThru
+    $building = Start-Process -FilePath "$ziglang\release\zig.exe" -ArgumentList $argList -WorkingDirectory $zig -PassThru
     $building.WaitForExit()
     Write-Debug -Message "Exit Code: $($building.ExitCode)"
     if ($building.ExitCode -ne 0) { throw "Failed to build zig." }
@@ -79,7 +78,7 @@ if ($FromSource.IsPresent) {
     }
     [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
 }
-$zigPath = if ($FromSource.IsPresent) { "$zig\stage3\bin\zig.exe" } else { "$temp\release\zig.exe" }
+$zigPath = if ($Source.IsPresent) { "$zig\stage3\bin\zig.exe" } else { "$ziglang\release\zig.exe" }
 if (Test-Path -Path "$zls\.git") {
     Write-Debug -Message "Updating zls"
     Start-Process -FilePath "git" -ArgumentList "pull", "origin" -Wait -NoNewWindow -WorkingDirectory $zls
