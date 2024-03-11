@@ -60,7 +60,11 @@ $argList = @(
 )
 if ($ReleaseSafe.IsPresent) { $argList += '-Doptimize=ReleaseSafe' }
 Remove-Item -Path "$zig\stage3\bin\zig.exe" -Force
-Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
+# Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
+Set-Location -Path $zig
+& "$temp\devkit\bin\zig.exe -build -p stage3 --search-prefix $temp\devkit --zig-lib-dir lib -Dstatic-llvm -Duse-zig-libcxx -Dtarget=x86_64-windows-gnu"
+Write-Host -Object "TEsting: $?" -ForegroundColor Yellow
+# I need a reliable way to tell if this failed, but it seems like this always returns successful
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, using latest release to build"
     $result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"
