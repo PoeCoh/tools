@@ -46,7 +46,7 @@ if (-not $result) {
     Write-Host -Object "Failed to download devkit, exiting"
     exit 1
 }
-Write-Host -Object "Building zig from source"
+Write-Debug -Message "Building zig from source"
 $argList = @(
     'build'
     '-p'
@@ -65,10 +65,9 @@ Set-Location -Path $zig
 Write-Host -Object "Testing: $?" -ForegroundColor Yellow
 # I need a reliable way to tell if this failed, but it seems like this always returns successful
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
-    Write-Host -Object "Build failed, using latest release to build"
+    Write-Debug -Message "Build failed, using latest release to build"
     $result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"
     if (-not $result) {
-        Remove-Item -Path $temp -Recurse -Force
         Write-Host -Object "Failed to download release, exiting"
         exit 1
     }
@@ -100,7 +99,7 @@ if (-not $paths.Contains("$zls\zig-out\bin")) {
     [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
     $Env:Path = $Env:Path + ';' + "$zls\zig-out\bin" + ';'
 }
-Write-Host -Object "Creating environment variables ZIG and ZLS"
+Write-Debug -Message "Creating environment variables ZIG and ZLS"
 [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
 [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
 if ($Test.IsPresent) {
