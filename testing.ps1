@@ -52,44 +52,46 @@ if (-not (Test-Path -Path $ziglang)) {
 }
 
 # Start downloading release build
-Write-Host -Object "Starting release build download..."
-$dlReleaseArgs = @{
+$dlReleaseSplat = @{
     FilePath = $pwshExe
     ArgumentList = @(
         "-NoExit"
         "-Command 
-            Set-Location -Path $ziglang;
-            iex ""& {
-                `$(irm git.poecoh.com/tools/zig/download-release.ps1)
-            } $(if (-not $Source.IsPresent) { "-Path" })"";
+        Set-Location -Path $ziglang;
+        iex ""& {
+            `$(irm git.poecoh.com/tools/zig/download-release.ps1)
+        } $(if (-not $Source.IsPresent) { "-Path" })"";
         "
     )
 }
-$dlRelease = Start-Process @dlReleaseArgs -PassThru
+Write-Host -Object "Download release build..."
+$dlRelease = Start-Process @dlReleaseSplat -PassThru
 
 # Start cloning/pulling zig
 if ($Source.IsPresent) {
     $cloneZig = (Test-Path -Path "$zig\.git") -eq $false
-    $gitZigArgs = @{
+    $gitZigSplat = @{
         FilePath = 'git'
         WorkingDirectory = if ($cloneZig) { $ziglang } else { $zig }
         ArgumentList = if ($cloneZig) { 'clone', 'https://github.com/ziglang/zig' }
                        else { 'pull', 'origin' }
         # WindowStyle = 'Hidden'
     }
-    $gitZig = Start-Process @gitZigArgs -PassThru
+    Write-Host -Object "$(if ($cloneZig) { 'Cloning' } else { 'Pulling' }) zig..."
+    $gitZig = Start-Process @gitZigSplat -PassThru
 }
 
 # Start cloning/pulling zls
 $cloneZls = (Test-Path -Path "$zls\.git") -eq $false
-$gitZlsArgs = @{
+$gitZlsSplat = @{
     FilePath = 'git'
     WorkingDirectory = if ($cloneZls) { $ziglang } else { $zls }
     ArgumentList = if ($cloneZls) { 'clone', 'https://github.com/zigtools/zls' }
                    else { 'pull', 'origin' }
     # WindowStyle = 'Hidden'
 }
-$gitZls = Start-Process @gitZlsArgs -PassThru
+Write-Host -Object "$(if ($cloneZls) { 'Cloning' } else { 'Pulling' }) zls..."
+$gitZls = Start-Process @gitZlsSplat -PassThru
 
 # build zig
 if ($Source.IsPresent) {
