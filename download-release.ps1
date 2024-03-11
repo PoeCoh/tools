@@ -9,6 +9,7 @@ param (
     [switch]$Path
 )
 try {
+    Write-Host -Object "Downloading release build"
     $temp = "$Env:TEMP\ziglang"
     if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
     if (Test-Path -Path "$temp\release") { Remove-Item -Path "$temp\release" -Recurse -Force }
