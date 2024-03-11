@@ -1,8 +1,7 @@
-# clones zig and zls git and builds from source
-# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) }"
-# to pass flags to the script, append them like this:
-# iex "& { $(irm git.poecoh.com/tools/zig/install.ps1) } -Test -Legacy -ReleaseSafe"
+# iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)}"
 # based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
+# to pass flags to the script, append them like this:
+# iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Test -Legacy -ReleaseSafe"
 # Sets environment variables ZIG and ZLS to thier respective repositories
 [CmdletBinding()]
 param (
@@ -31,14 +30,20 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/ziglang/zig" -Wait -NoNewWindow -WorkingDirectory $ziglang
-$content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
-$version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
-$url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
-if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
-Invoke-WebRequest -Uri $url -OutFile "$temp\devkit.zip"
-Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force
-Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer }).FullName -NewName "devkit"
-Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
+$result = iex "& {$(irm git.poecoh.com/tools/zig/devkit.ps1)} -Path '$zig'"
+if (-not $result) {
+    Remove-Item -Path $temp -Recurse -Force
+    Write-Host -Object "Failed to download devkit, exiting"
+    exit 1
+}
+# $content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
+# $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
+# $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
+# if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
+# Invoke-WebRequest -Uri $url -OutFile "$temp\devkit.zip"
+# Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force
+# Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer }).FullName -NewName "devkit"
+# Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
 Write-Host -Object "Building zig from source"
 $argList = @(
     'build'
@@ -91,8 +96,8 @@ if (-not $paths.Contains("$zls\zig-out\bin")) {
     $Env:Path = $Env:Path + ';' + "$zls\zig-out\bin" + ';'
 }
 Write-Host -Object "Creating environment variables ZIG and ZLS"
-[Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
 [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
+[Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
 if ($Test.IsPresent) {
     Write-Host -Object "Running zig build test"
     Start-Process -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
