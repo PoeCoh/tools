@@ -30,7 +30,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/ziglang/zig" -Wait -NoNewWindow -WorkingDirectory $ziglang
-$result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -Path '$zig'"
+$result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -RepoPath '$zig'"
 if (-not $result) {
     Remove-Item -Path $temp -Recurse -Force
     Write-Host -Object "Failed to download devkit, exiting"
