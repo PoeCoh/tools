@@ -1,8 +1,15 @@
-# iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)}"
-# based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
-# to pass flags to the script, append them like this:
-# iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Test -Legacy -ReleaseSafe"
-# Sets environment variables ZIG and ZLS to thier respective repositories
+<#
+iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)}"
+
+based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
+Sets environment variables ZIG and ZLS to thier respective repositories
+This script doubles as an update script
+
+to pass flags to the script, append them like this:
+iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Test -Legacy -ReleaseSafe"
+
+I split the download sections off into their own thing so they can be used independently
+#>
 [CmdletBinding()]
 param (
     [parameter()]
@@ -29,21 +36,17 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
 }
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
-Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/ziglang/zig" -Wait -NoNewWindow -WorkingDirectory $ziglang
+try {
+    Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/ziglang/zig" -Wait -NoNewWindow -WorkingDirectory $ziglang
+} catch {
+    Start-Process -FilePath "git" -ArgumentList "pull", "origin" -Wait -NoNewWindow -WorkingDirectory $zig
+}
 $result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -RepoPath '$zig'"
 if (-not $result) {
     Remove-Item -Path $temp -Recurse -Force
     Write-Host -Object "Failed to download devkit, exiting"
     exit 1
 }
-# $content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
-# $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
-# $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
-# if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
-# Invoke-WebRequest -Uri $url -OutFile "$temp\devkit.zip"
-# Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force
-# Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer }).FullName -NewName "devkit"
-# Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
 Write-Host -Object "Building zig from source"
 $argList = @(
     'build'
@@ -65,17 +68,6 @@ if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
         Write-Host -Object "Failed to download release, exiting"
         exit 1
     }
-    # $response = Invoke-WebRequest -Uri "https://ziglang.org/download#release-master"
-    # if ($PSVersionTable.PSVersion.Major -eq 5) {
-    #     $url = $response.Links.Where({$_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64'}).href
-    # } else {
-    #     $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
-    #     $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
-    # }
-    # Invoke-WebRequest -Uri $url -OutFile "$temp\release.zip"
-    # Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force
-    # Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -ne 'devkit' }).FullName -NewName "release"
-    # Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 }
 Remove-Item -Path $temp -Recurse -Force
@@ -92,7 +84,11 @@ if (-not $paths.Contains("$zig\stage3\bin")) {
     $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
 }
 Write-Host -Object "Building zls from source"
-Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
+try {
+    Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
+} catch {
+    Start-Process -FilePath "git" -ArgumentList "pull", "origin" -Wait -NoNewWindow -WorkingDirectory $zls
+}
 Start-Process -FilePath "$zig\stage3\bin\zig.exe" -ArgumentList 'build', '-Doptimize=ReleaseSafe' -Wait -NoNewWindow -WorkingDirectory $zls
 Write-Host -Object "Adding zls to path"
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })

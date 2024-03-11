@@ -1,5 +1,6 @@
 # iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -Path $ZigRepo"
 # Downloads devkit for version to $Env:TEMP\ziglang\devkit
+# Requires path to zig repo to see version
 [CmdletBinding()]
 param ($RepoPath)
 try {
