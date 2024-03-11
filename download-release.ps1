@@ -27,7 +27,7 @@ try {
     Rename-Item -Path $release -NewName "release"
     Get-ChildItem -Path $ziglang -Filter "*.zip" | Remove-Item -Recurse -Force
     if ($Path.IsPresent) {
-        $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
+        $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
         if (-not $paths.Contains("$ziglang\release")) {
             $paths += "$ziglang\release"
             [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null

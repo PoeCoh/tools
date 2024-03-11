@@ -75,7 +75,7 @@ if ($Source.IsPresent) {
     Get-ChildItem -Path $ziglang -Filter "devkit" | Remove-Item -Recurse -Force
     Get-ChildItem -Path $ziglang -Filter "release" | Remove-Item -Recurse -Force
     Write-Host -Object "Done"
-    $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
+    $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
     if (-not $paths.Contains("$zig\stage3\bin")) {
         Write-Debug -Message "Adding zig to path"
         $paths += "$zig\stage3\bin"
@@ -98,7 +98,7 @@ $building = Start-Process -FilePath $zigPath -ArgumentList 'build', '-Doptimize=
 $building.WaitForExit()
 Write-Debug -Message "Exit Code: $($building.ExitCode)"
 Write-Host -Object "Done"
-$paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
+$paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
 if (-not $paths.Contains("$zls\zig-out\bin")) {
     Write-Debug -Message "Adding zls to path"
     $paths += "$zls\zig-out\bin"
