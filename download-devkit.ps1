@@ -15,8 +15,7 @@ try {
     $devkit = Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force -PassThru
     $devKit = $devKit.FullName.where({$_ -match 'zig\.exe'})
     $devKit = Resolve-Path -Path "$devKit\..\.."
-    Write-Debug -Message "Devkit: $devKit"
-    Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -match 'zig'}).FullName -NewName "devkit"
+    Rename-Item -Path $devKit -NewName "devkit"
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
 }

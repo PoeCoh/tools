@@ -23,9 +23,8 @@ try {
     Invoke-WebRequest -Uri $url -OutFile "$temp\release.zip"
     $release = Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force -PassThru
     $release = $release.FullName.where({$_ -match 'zig\.exe'})
-    $release = Resolve-Path -Path "$release\..\.."
-    Write-Debug -Message "Release: $release"
-    Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -match 'zig' }).FullName -NewName "release"
+    $release = Resolve-Path -Path "$release\.."
+    Rename-Item -Path $release -NewName "release"
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
     if ($Path.IsPresent) {
