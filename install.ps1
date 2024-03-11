@@ -59,6 +59,7 @@ $argList = @(
     '-Dtarget=x86_64-windows-gnu'
 )
 if ($ReleaseSafe.IsPresent) { $argList += '-Doptimize=ReleaseSafe' }
+Remove-Item -Path "$zig\stage3\bin\zig.exe" -Force
 Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, using latest release to build"
