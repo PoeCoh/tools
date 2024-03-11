@@ -11,7 +11,8 @@ try {
     $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
     $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
     Invoke-WebRequest -Uri $url -OutFile "$temp\devkit.zip"
-    Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force
+    $devkit = Expand-Archive -Path "$temp\devkit.zip" -DestinationPath $temp -Force -PassThru
+    Write-Debug -Message "Devkit: $($devkit.FullName)"
     Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -match 'zig'}).FullName -NewName "devkit"
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true

@@ -20,7 +20,8 @@ try {
         $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
     }
     Invoke-WebRequest -Uri $url -OutFile "$temp\release.zip"
-    Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force
+    $release = Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force -PassThru
+    Write-Debug -Message "Release: $($release.FullName)"
     Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -match 'zig' }).FullName -NewName "release"
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
