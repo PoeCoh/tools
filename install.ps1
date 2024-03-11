@@ -64,7 +64,7 @@ if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, using latest release to build"
     $result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"
     if (-not $result) {
-        Remove-Item -Path $temp, $ziglang -Recurse -Force
+        Remove-Item -Path $temp -Recurse -Force
         Write-Host -Object "Failed to download release, exiting"
         exit 1
     }
@@ -73,7 +73,6 @@ if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
 Remove-Item -Path $temp -Recurse -Force
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, exiting cleaning up and exiting"
-    Remove-Item -Path $ziglang -Recurse -Force
     exit 1
 }
 Write-Host -Object "Build successful, adding to path"
