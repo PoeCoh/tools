@@ -6,7 +6,7 @@ param (
 
 try {
     $temp = "$Env:TEMP\ziglang"
-    Remove-Item -Path $temp -Recurse -Force
+    if (Test-Path -Path $temp) { Remove-Item -Path $temp -Recurse -Force }
     $content = Get-Content -Path "$Path\ci\x86_64-windows-debug.ps1"
     $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
     $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
