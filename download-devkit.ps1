@@ -4,7 +4,7 @@
 [CmdletBinding()]
 param ($RepoPath = './')
 try {
-    Write-Host -Object "Downloading devkit... " -NoNewline
+    Write-Host -Object "Downloading devkit..."
     $ziglang = "$Env:LOCALAPPDATA\ziglang"
     if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
     if (Test-Path -Path "$ziglang\devkit") { Remove-Item -Path "$ziglang\devkit" -Recurse -Force }

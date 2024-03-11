@@ -9,7 +9,7 @@ param (
     [switch]$Path
 )
 try {
-    Write-Host -Object "Downloading release build"
+    Write-Host -Object "Downloading release build..."
     $ziglang = "$Env:LOCALAPPDATA\ziglang"
     if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
     if (Test-Path -Path "$ziglang\release") { Remove-Item -Path "$ziglang\release" -Recurse -Force }
