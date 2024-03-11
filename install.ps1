@@ -6,7 +6,7 @@ Sets environment variables ZIG and ZLS to thier respective repositories
 This script doubles as an update script
 
 to pass flags to the script, append them like this:
-iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Test -Legacy -ReleaseSafe"
+iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Test -Legacy -ReleaseSafe -Debug"
 
 I split the download sections off into their own thing so they can be used independently
 #>
@@ -70,14 +70,14 @@ if ($building.ExitCode -ne 0) {
     Write-Debug -Message "Exit Code: $($building.ExitCode)"
 }
 if ($building.ExitCode -ne 0) { throw "Zig build failed." }
-Write-Debug -Message "Build successful, adding to path"
+Write-Debug -Message "Build successful"
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
 if (-not $paths.Contains("$zig\stage3\bin")) {
+    Write-Debug -Message "Adding zig to path"
     $paths += "$zig\stage3\bin"
     [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
     $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
 }
-Write-Debug -Message "Building zls from source"
 if (Test-Path -Path "$zls\.git") {
     Write-Debug -Message "Updating zls"
     Start-Process -FilePath "git" -ArgumentList "pull", "origin" -Wait -NoNewWindow -WorkingDirectory $zls
@@ -85,12 +85,13 @@ if (Test-Path -Path "$zls\.git") {
     Write-Debug -Message "Cloning zls"
     Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/zigtools/zls" -Wait -NoNewWindow -WorkingDirectory $ziglang
 }
+Write-Debug -Message "Building zls from source"
 $building = Start-Process -FilePath "$zig\stage3\bin\zig.exe" -ArgumentList 'build', '-Doptimize=ReleaseSafe' -WorkingDirectory $zls -PassThru
 $building.WaitForExit()
 Write-Debug -Message "Exit Code: $($building.ExitCode)"
-Write-Debug -Message "Adding zls to path"
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
 if (-not $paths.Contains("$zls\zig-out\bin")) {
+    Write-Debug -Message "Adding zls to path"
     $paths += "$zls\zig-out\bin"
     [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
     $Env:Path = $Env:Path + ';' + "$zls\zig-out\bin" + ';'
@@ -103,4 +104,3 @@ if ($Test.IsPresent) {
     Start-Procenss -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
 }
 Write-Host -Object "Done" -ForegroundColor Green
-return
