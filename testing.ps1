@@ -182,11 +182,9 @@ foreach ($path in $newPaths) {
 
 # Set environment variables
 Write-Host -Object "Setting Environment Variables..."
-[Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
-if ($Source.IsPresent) {
-    [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
-    Write-Host -Object "`$Env:ZIG -> '$zig'"
-}
+if ($Source.IsPresent -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null }
+Write-Host -Object "`$Env:ZIG -> '$zig'"
+if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null }
 Write-Host -Object "`$Env:ZLS -> '$zls'"
 
 # Run zig build test
