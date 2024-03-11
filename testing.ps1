@@ -12,10 +12,6 @@ I split the download sections off into their own thing so they can be used indep
 #>
 [CmdletBinding()]
 param (    
-    # Bypasses Legacy check
-    [parameter()]
-    [switch]$Legacy,
-    
     # Builds zig from source
     [parameter()]
     [switch]$Source,
@@ -33,38 +29,34 @@ $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
 
-$pwshExe = Get-ChildItem -Path $PSHOME |
-    Where-Object -FilterScript { $_.Name -match 'pwsh\.exe|powershell\.exe' } |
-    Select-Object -ExpandProperty FullName -First 1
-
-if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
-    Write-Host -Object "Legacy powershell takes drastically longer, please install and use powershell 7+."
-    # No, really, legacy was shockingly slow.
-    Write-Host -Object "If you must use legacy powershell, add -Legacy to the command to ignore this."
-    Write-Host -Object 'iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Legacy"' -ForegroundColor DarkYellow
-    return
-}
-
 # create ziglang directory if it doesn't exist
-if (-not (Test-Path -Path $ziglang)) {
-    New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
-}
+New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
-# Start downloading release build
-$dlReleaseSplat = @{
-    FilePath = $pwshExe
-    ArgumentList = @(
-        "-NoExit"
-        "-Command 
-        Set-Location -Path $ziglang;
-        iex ""& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"";
-        "
-    )
+Write-Host -Object "Downloading release build..."
+$release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
+    if (Test-Path -Path "$using:ziglang\release") {
+        Remove-Item -Path "$using:ziglang\release" -Recurse -Force
+    }
+    $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
+    $url = if ($PSVersionTable.PSVersion.Major -eq 5) {
+        $response.Links.Where({ $_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64' }).href
+    } else {
+        $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
+        [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
+    }
+    Invoke-WebRequest -Uri $url -OutFile "$using:ziglang\release.zip"
+    $folder = Expand-Archive -Path "$using:ziglang\release.zip" -DestinationPath $using:ziglang -Force -PassThru |
+        Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
+    Resolve-Path -Path "$folder\.." | Rename-Item -NewName 'release'
+    Remove-Item -Path "$using:ziglang\release.zip" -Recurse -Force
+    # if (-not $using:Source.IsPresent) {
+    #     $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
+    #     if (-not $paths.Contains($ziglang + '\release')) {
+    #         $paths += $ziglang + '\release'
+    #         [Environment]::SetEnvironmentVariable('Path', $($paths -join ';') + ';', 'User') | Out-Null
+    #     }
+    # }
 }
-Write-Host -Object "Download release build..."
-$dlRelease = Start-Process @dlReleaseSplat -PassThru
-$dlRelease.WaitForExit()
-if ($dlRelease.ExitCode -ne 0) { throw "Failed to download release build." }
 
 # Start cloning/pulling zig
 if ($Source.IsPresent) {
@@ -72,9 +64,9 @@ if ($Source.IsPresent) {
     $gitZigSplat = @{
         FilePath = 'git'
         WorkingDirectory = if ($cloneZig) { $ziglang } else { $zig }
+        WindowStyle = 'Hidden'
         ArgumentList = if ($cloneZig) { 'clone', 'https://github.com/ziglang/zig' }
                        else { 'pull', 'origin' }
-        # WindowStyle = 'Hidden'
     }
     Write-Host -Object "$(if ($cloneZig) { 'Cloning' } else { 'Pulling' }) zig..."
     $gitZig = Start-Process @gitZigSplat -PassThru
@@ -85,26 +77,38 @@ $cloneZls = (Test-Path -Path "$zls\.git") -eq $false
 $gitZlsSplat = @{
     FilePath = 'git'
     WorkingDirectory = if ($cloneZls) { $ziglang } else { $zls }
+    WindowStyle = 'Hidden'
     ArgumentList = if ($cloneZls) { 'clone', 'https://github.com/zigtools/zls' }
                    else { 'pull', 'origin' }
-    # WindowStyle = 'Hidden'
 }
 Write-Host -Object "$(if ($cloneZls) { 'Cloning' } else { 'Pulling' }) zls..."
 $gitZls = Start-Process @gitZlsSplat -PassThru
 
 # build zig
 if ($Source.IsPresent) {
-    # we need the git cloned/updated to get the version for the devkit
+    # we need zig cloned/updated to get the version for devkit
     $gitZig.WaitForExit()
     if ($gitZig.ExitCode -ne 0) { throw "Failed to clone or pull zig." }
-    
-    # Download devkit
-    $result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -RepoPath '$zig'"
-    if (-not $result) { throw "Failed to download devkit." }
+    Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
 
-    # We need the release build to build zig (usually)
-    $dlRelease.WaitForExit()
-    if ($dlRelease.ExitCode -ne 0) { throw "Failed to download release build." }
+    # Download devkit
+    Write-Host -Object "Downloading devkit..."
+    if (Test-Path -Path "$ziglang\devkit") {
+        Remove-Item -Path "$ziglang\devkit" -Recurse -Force
+    }
+    $content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
+    $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
+    $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
+    Invoke-WebRequest -Uri $url -OutFile "$ziglang\devkit.zip"
+    $folder = Expand-Archive -Path "$ziglang\devkit.zip" -DestinationPath $ziglang -Force -PassThru |
+        Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
+    Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
+    Remove-Item -Path "$ziglang\devkit.zip" -Recurse -Force
+    Write-Host -Object "Devkit downloaded and extracted."
+
+    # Wait for devkit and release to finish
+    Wait-Job -Job $release
+    Write-Host -Object $release.State
 
     # Build zig
     Write-Host -Object "Building Zig..."
@@ -123,18 +127,13 @@ if ($Source.IsPresent) {
         WorkingDirectory = $zig
     }
     if ($ReleaseSafe.IsPresent) { $buildingArgs.ArgumentList += '-Doptimize=ReleaseSafe' }
-    $building = Start-Process @buildingArgs -PassThru
-    $building.WaitForExit()
-    Write-Debug -Message "Exit Code: $($building.ExitCode)"
-    if ($building.ExitCode -ne 0) { throw "Failed to build zig." }
+    $build = Start-Process @buildingArgs -Wait -NoNewWindow -PassThru
+    Write-Output -Object $build
 
-    # Clean up
-    Get-ChildItem -Path $ziglang | ForEach-Object -Process {
-        if ($_.Name -match 'devkit|release') {
-            Remove-Item -Path $_.FullName -Recurse -Force
-        }
-    }
-    Write-Host -Object "Done"
+    # Clean up, we don't need these if we built from source
+    Get-ChildItem -Path $ziglang |
+        Where-Object -FilterScript { $_.Name -match 'devkit|release' } |
+        Remove-Item -Recurse -Force
 
     # Set zig path and environment variable
     $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
@@ -151,6 +150,7 @@ if ($Source.IsPresent) {
 # We need git to finish before we can build zls
 $gitZls.WaitForExit()
 if ($gitZls.ExitCode -ne 0) { throw "Failed to clone or pull zls." }
+Write-Host -Object "$(if ($cloneZls) { 'Cloned' } else { 'Pulled' }) zls."
 
 # build zls
 Write-Host -Object "Building zls..."
@@ -160,29 +160,41 @@ $buildArgs = @{
     ArgumentList = 'build', '-Doptimize=ReleaseSafe'
     WorkingDirectory = $zls
 }
-$building = Start-Process @buildArgs -PassThru
+$building = Start-Process @buildArgs -Wait -NoNewWindow -PassThru
 $building.WaitForExit()
-Write-Debug -Message "Exit Code: $($building.ExitCode)"
 if ($building.ExitCode -ne 0) { throw "Failed building zls." }
 Write-Host -Object "Done"
 
-# Set zls path and environment variable
+# add paths
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
-if (-not $paths.Contains("$zls\zig-out\bin")) {
-    Write-Debug -Message "Adding zls to path"
-    $paths += "$zls\zig-out\bin"
-    [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
-    $Env:Path = $Env:Path + ';' + "$zls\zig-out\bin" + ';'
+$newPaths = @(
+    "$zls\zig-out\bin"
+    if ($Source.IsPresent) { "$zig\stage3\bin" } else { "$ziglang\release" }
+)
+foreach ($path in $newPaths) {
+    if (-not $paths.Contains($path)) {
+        Write-Host -Object "Adding '$path' to path"
+        $paths += $path
+        $Env:Path = $Env:Path + "$path;"
+    }
 }
+[Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
+
+# Set environment variables
+Write-Host -Object "Setting Environment Variables..."
 [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
+if ($Source.IsPresent) {
+    [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
+    Write-Host -Object "`$Env:ZIG -> '$zig'"
+}
 Write-Host -Object "`$Env:ZLS -> '$zls'"
 
 # Run zig build test
-if ($Test.IsPresent) {
-    Write-Host -Object "Running zig build test"
-    Start-Procenss -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
-}
-Write-Host -Object "Done" -ForegroundColor Green
+# if ($Test.IsPresent) {
+#     Write-Host -Object "Running zig build test"
+#     Start-Procenss -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
+# }
+# Write-Host -Object "Done" -ForegroundColor Green
 
 # Open ziglang directory
-Start-Process -FilePath 'explorer' -ArgumentList $ziglang
+# Start-Process -FilePath 'explorer' -ArgumentList $ziglang
