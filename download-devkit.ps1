@@ -1,8 +1,8 @@
-# iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -Path $ZigRepo"
+# iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)}"
 # Downloads devkit for version to $Env:TEMP\ziglang\devkit
-# Requires path to zig repo to see version
+# Requires path to zig repo (or to be run in the repo directory) to see version
 [CmdletBinding()]
-param ($RepoPath)
+param ($RepoPath = './')
 try {
     $temp = "$Env:TEMP\ziglang"
     if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
