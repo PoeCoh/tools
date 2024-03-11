@@ -2,7 +2,7 @@
 # Downloads devkit for version to $Env:TEMP\ziglang\devkit
 [CmdletBinding()]
 param ($RepoPath)
-try {
+# try {
     $temp = "$Env:TEMP\ziglang"
     if (-not (Test-Path -Path $temp)) { New-Item -Path $temp -ItemType Directory -Force | Out-Null }
     if (Test-Path -Path "$temp\devkit") { Remove-Item -Path "$temp\devkit" -Recurse -Force }
@@ -14,7 +14,7 @@ try {
     Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -match 'zig'}).FullName -NewName "devkit"
     Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     return $true
-}
-catch {
-    return $false
-}
+# }
+# catch {
+    # return $false
+# }
