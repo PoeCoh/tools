@@ -81,6 +81,7 @@ if ($Source.IsPresent) {
         $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
     }
     [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
+    Write-Host -Object "`$Env:ZIG -> '$zig'"
 }
 $zigPath = if ($Source.IsPresent) { "$zig\stage3\bin\zig.exe" } else { "$ziglang\release\zig.exe" }
 if (Test-Path -Path "$zls\.git") {
@@ -103,6 +104,7 @@ if (-not $paths.Contains("$zls\zig-out\bin")) {
     $Env:Path = $Env:Path + ';' + "$zls\zig-out\bin" + ';'
 }
 [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null
+Write-Host -Object "`$Env:ZLS -> '$zls'"
 if ($Test.IsPresent) {
     Write-Host -Object "Running zig build test"
     Start-Procenss -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
