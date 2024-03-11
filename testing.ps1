@@ -66,6 +66,8 @@ $dlReleaseSplat = @{
 }
 Write-Host -Object "Download release build..."
 $dlRelease = Start-Process @dlReleaseSplat -PassThru
+$dlRelease.WaitForExit()
+if ($dlRelease.ExitCode -ne 0) { throw "Failed to download release build." }
 
 # Start cloning/pulling zig
 if ($Source.IsPresent) {
