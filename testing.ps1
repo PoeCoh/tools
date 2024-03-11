@@ -56,6 +56,7 @@ Write-Host -Object "Starting release build download..."
 $dlReleaseArgs = @{
     FilePath = $pwshExe
     ArgumentList = @(
+        "-NoExit"
         "-Command 
             Set-Location -Path $ziglang;
             iex ""& {
