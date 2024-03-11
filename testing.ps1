@@ -1,12 +1,7 @@
-<#
-iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)}"
-
-based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
-
-to pass flags to the script, append them like this:
-iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Source -ReleaseSafe -Debug"
-
-#>
+# PS> iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)}"
+# Based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
+# To pass flags to the script, append them like this:
+# PS> iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Source -ReleaseSafe -Debug"
 [CmdletBinding()]
 param (    
     # Builds zig from source
