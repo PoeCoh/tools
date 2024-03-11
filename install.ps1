@@ -30,7 +30,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and -not $Legacy.IsPresent) {
 
 if (-not (Test-Path -Path $ziglang)) { New-Item -Path $ziglang -ItemType Directory -Force | Out-Null }
 Start-Process -FilePath "git" -ArgumentList "clone", "https://github.com/ziglang/zig" -Wait -NoNewWindow -WorkingDirectory $ziglang
-$result = iex "& {$(irm git.poecoh.com/tools/zig/devkit.ps1)} -Path '$zig'"
+$result = iex "& {$(irm git.poecoh.com/tools/zig/download-devkit.ps1)} -Path '$zig'"
 if (-not $result) {
     Remove-Item -Path $temp -Recurse -Force
     Write-Host -Object "Failed to download devkit, exiting"
@@ -59,17 +59,23 @@ if ($ReleaseSafe.IsPresent) { $argList += '-Doptimize=ReleaseSafe' }
 Start-Process -FilePath "$temp\devkit\bin\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 if (-not (Test-Path -Path "$zig\stage3\bin\zig.exe")) {
     Write-Host -Object "Build failed, using latest release to build"
-    $response = Invoke-WebRequest -Uri "https://ziglang.org/download#release-master"
-    if ($PSVersionTable.PSVersion.Major -eq 5) {
-        $url = $response.Links.Where({$_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64'}).href
-    } else {
-        $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
-        $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
+    $result = iex "& {$(irm git.poecoh.com/tools/zig/download-release.ps1)}"
+    if (-not $result) {
+        Remove-Item -Path $temp, $ziglang -Recurse -Force
+        Write-Host -Object "Failed to download release, exiting"
+        exit 1
     }
-    Invoke-WebRequest -Uri $url -OutFile "$temp\release.zip"
-    Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force
-    Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -ne 'devkit' }).FullName -NewName "release"
-    Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
+    # $response = Invoke-WebRequest -Uri "https://ziglang.org/download#release-master"
+    # if ($PSVersionTable.PSVersion.Major -eq 5) {
+    #     $url = $response.Links.Where({$_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64'}).href
+    # } else {
+    #     $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
+    #     $url = [regex]::new("<a href=(https://[^"">]+)>").Match($href).Groups[1].Value
+    # }
+    # Invoke-WebRequest -Uri $url -OutFile "$temp\release.zip"
+    # Expand-Archive -Path "$temp\release.zip" -DestinationPath $temp -Force
+    # Rename-Item -Path (Get-ChildItem -Path $temp).where({ $_.PSIsContainer -and $_.Name -ne 'devkit' }).FullName -NewName "release"
+    # Get-ChildItem -Path $temp -Filter "*.zip" | Remove-Item -Recurse -Force
     Start-Process -FilePath "$temp\release\zig.exe" -ArgumentList $argList -Wait -NoNewWindow -WorkingDirectory $zig
 }
 Remove-Item -Path $temp -Recurse -Force

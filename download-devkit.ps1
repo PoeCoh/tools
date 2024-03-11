@@ -1,7 +1,8 @@
 # iex "& {$(irm git.poecoh.com/tools/zig/devkit.ps1)} -Path $ZigRepo"
+# Downloads devkit for version to temp directoy $Env:TEMP\ziglang\devkit
 [CmdletBinding()]
 param (
-    $Path
+    $RepoPath
 )
 
 try {
