@@ -72,6 +72,8 @@ if ($Source.IsPresent) {
     $building.WaitForExit()
     Write-Debug -Message "Exit Code: $($building.ExitCode)"
     if ($building.ExitCode -ne 0) { throw "Failed to build zig." }
+    Get-ChildItem -Path $ziglang -Filter "devkit" | Remove-Item -Recurse -Force
+    Get-ChildItem -Path $ziglang -Filter "release" | Remove-Item -Recurse -Force
     Write-Host -Object "Done"
     $paths = [Environment]::GetEnvironmentVariable('Path', 'User').Split(';').TrimEnd('\').where({ $_ -ne '' })
     if (-not $paths.Contains("$zig\stage3\bin")) {
@@ -110,3 +112,4 @@ if ($Test.IsPresent) {
     Start-Procenss -FilePath "zig" -ArgumentList "build", "test" -Wait -NoNewWindow -WorkingDirectory $zig
 }
 Write-Host -Object "Done" -ForegroundColor Green
+Start-Process -FilePath 'explorer' -ArgumentList $ziglang
