@@ -11,18 +11,22 @@ iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Source -Test -Legacy -Rele
 I split the download sections off into their own thing so they can be used independently
 #>
 [CmdletBinding()]
-param (
-    [parameter()]
-    [switch]$Test,
-
-    [parameter()]
-    [switch]$ReleaseSafe,
-
+param (    
+    # Bypasses Legacy check
     [parameter()]
     [switch]$Legacy,
-
+    
+    # Builds zig from source
     [parameter()]
-    [switch]$Source
+    [switch]$Source,
+    
+    # Passes ReleaseSafe to zig build
+    [parameter()]
+    [switch]$ReleaseSafe,
+    
+    # Runs zig build test
+    [parameter()]
+    [switch]$Test
 )
 
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
