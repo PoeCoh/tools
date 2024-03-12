@@ -31,7 +31,7 @@ $windowStyle = if ($PSBoundParameters.ContainsKey('Debug')) { 'Normal' } else { 
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
 Write-Host -Object "Downloading latest release build..."
-$release = Start-Job -WorkingDirectory $zig -ScriptBlock {
+$release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
     $ziglang = $using:ziglang
     $dir = "$ziglang\release"
     $zip = "$dir`.zip"
