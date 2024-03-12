@@ -121,7 +121,7 @@ if ($BuildFromSource) {
 
     # Download devkit, requires data from zig repo
     Write-Host -Object "Downloading devkit..."
-    Start-Job -ScriptBlock $devkitBlock | Wait-Job | Out-Null
+    Start-Job -ScriptBlock $devkitBlock -WorkingDirectory $ziglang | Wait-Job | Out-Null
     Write-Host -Object "Extracted devkit."
 
     # Build zig with devkit
