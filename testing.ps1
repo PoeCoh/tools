@@ -156,7 +156,7 @@ if ($BuildFromSource) {
         Copy-Item -Path "$ziglang\release\lib" -Destination "$ziglang\devkit\lib" -Recurse -Force
         Copy-Item -Path "$ziglang\release.zig.exe" -Destination "$ziglang\devkit\bin\zig.exe" -Force
         Write-Host -Object "Copy done. Building Zig with release..."
-        $buildArgs.FilePath = "$ziglang\release\zig.exe"
+        # $buildArgs.FilePath = "$ziglang\release\zig.exe"
         $build = Start-Process @buildArgs -PassThru
         $build.WaitForExit()
     }
