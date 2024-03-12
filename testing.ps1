@@ -150,6 +150,8 @@ if ($BuildFromSource) {
     # try building with release
     if ($build.ExitCode -ne 0) {
         Write-Host -Object "Failed. Building Zig with latest release..."
+        # copy devkit\lib to release\lib
+        Copy-Item -Path "$ziglang\release\lib" -Destination "$ziglang\devkit\lib" -Recurse -Force
         Wait-Job -Job $release | Out-Null
         Write-Host -Object "Extracted release build."
         $buildArgs.FilePath = "$ziglang\release\zig.exe"
