@@ -150,24 +150,13 @@ if ($BuildFromSource) {
     # try building with release
     if ($build.ExitCode -ne 0) {
         Write-Host -Object "Failed. Building Zig with latest release..."
-        # copy devkit\lib to release\lib
-        Copy-Item -Path "$ziglang\release\lib" -Destination "$ziglang\devkit\lib" -Recurse -Force
         Wait-Job -Job $release | Out-Null
         Write-Host -Object "Extracted release build."
+        Write-Host -Object "Copying release files to devkit..."
+        Copy-Item -Path "$ziglang\release\lib" -Destination "$ziglang\devkit\lib" -Recurse -Force
+        Copy-Item -Path "$ziglang\release.zig.exe" -Destination "$ziglang\devkit\bin\zig.exe" -Force
+        Write-Host -Object "Copy done. Building Zig with release..."
         $buildArgs.FilePath = "$ziglang\release\zig.exe"
-        $buildArgs.ArgumentList = @(
-            'build'
-            '-p'
-            'stage3'
-            '--search-prefix'
-            "$ziglang\release"
-            '--zig-lib-dir'
-            'lib'
-            '-Dstatic-llvm'
-            '-Duse-zig-libcxx'
-            '-Dtarget=x86_64-windows-gnu'
-            if ($ReleaseSafe.IsPresent) { '-Doptimize=ReleaseSafe' }    
-        )
         $build = Start-Process @buildArgs -PassThru
         $build.WaitForExit()
     }
