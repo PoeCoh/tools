@@ -154,7 +154,7 @@ if ($BuildFromSource) {
         Write-Host -Object "Extracted release build."
         Write-Host -Object "Copying release files to devkit..."
         Copy-Item -Path "$ziglang\release\lib" -Destination "$ziglang\devkit\lib" -Recurse -Force
-        Copy-Item -Path "$ziglang\release.zig.exe" -Destination "$ziglang\devkit\bin\zig.exe" -Force
+        Copy-Item -Path "$ziglang\release\zig.exe" -Destination "$ziglang\devkit\bin\zig.exe" -Force
         Write-Host -Object "Copy done. Building Zig with release..."
         # $buildArgs.FilePath = "$ziglang\release\zig.exe"
         $build = Start-Process @buildArgs -PassThru
