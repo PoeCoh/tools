@@ -78,7 +78,7 @@ $devkitBlock = {
 $gitSplat = @{
     FilePath = 'git'
     WorkingDirectory = ''
-    ArgumentList = @()
+    ArgumentList = $null
     WindowStyle = $windowStyle
 }
 
