@@ -149,8 +149,9 @@ if ($BuildFromSource) {
 
     # try building with release
     if ($build.ExitCode -ne 0) {
-        Write-Host -Object "Failed. Building Zig with latest release."
+        Write-Host -Object "Failed. Building Zig with latest release..."
         Wait-Job -Job $release | Out-Null
+        Write-Host -Object "Extracted release build."
         $buildArgs.FilePath = "$ziglang\release\zig.exe"
         $build = Start-Process @buildArgs -PassThru
         $build.WaitForExit()
