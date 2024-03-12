@@ -84,9 +84,6 @@ if ($Source.IsPresent) {
 
     # Download devkit
     Write-Host -Object "Downloading devkit..."
-    # if (Test-Path -Path "$ziglang\devkit") {
-    #     Remove-Item -Path "$ziglang\devkit" -Recurse -Force
-    # }
     $content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
     $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
     $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
@@ -99,6 +96,9 @@ if ($Source.IsPresent) {
     Invoke-WebRequest -Uri $url -OutFile "$ziglang\devkit.zip"
     $hash2 = Get-FileHash -Path "$ziglang\devkit.zip" -Algorithm SHA256
     if (-not ($hash -and $hash2.Hash -eq $hash.Hash -and (Test-Path -Path "$ziglang\devkit"))) {
+        if (Test-Path -Path "$ziglang\devkit") {
+            Remove-Item -Path "$ziglang\devkit" -Recurse -Force
+        }
         $folder = Expand-Archive -Path "$ziglang\devkit.zip" -DestinationPath $ziglang -Force -PassThru |
             Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
         Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
