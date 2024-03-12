@@ -31,21 +31,22 @@ $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
     $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
     $url = if ($PSVersionTable.PSVersion.Major -eq 5) {
         $response.Links.Where({ $_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64' }).href
-    } else {
+    }
+    else {
         $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
         [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
     }
     Invoke-WebRequest -Uri $url -OutFile $zip
     $folder = Expand-Archive -Path $zip -DestinationPath $ziglang -Force -PassThru |
-        Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
+    Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
     Resolve-Path -Path "$folder\.." | Rename-Item -NewName 'release'
 }
 
 $gitSplat = @{
-    FilePath = 'git'
+    FilePath         = 'git'
     WorkingDirectory = ''
-    ArgumentList = $null
-    WindowStyle = $(
+    ArgumentList     = $null
+    WindowStyle      = $(
         if ($PSBoundParameters.ContainsKey('Debug')) { 'Normal' }
         else { 'Hidden' }
     )
@@ -87,7 +88,7 @@ $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
 $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
 Invoke-WebRequest -Uri $url -OutFile $zip
 $folder = Expand-Archive -Path $zip -DestinationPath $ziglang -Force -PassThru |
-    Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
+Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
 Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
 Write-Host -Object "Got devkit."
 
@@ -100,9 +101,9 @@ Write-Host -Object "Copied files."
 # Build zig with devkit
 Write-Host -Object "Building zig..."
 $buildArgs = @{
-    FilePath = "$ziglang\devkit\bin\zig.exe"
+    FilePath         = "$ziglang\devkit\bin\zig.exe"
     WorkingDirectory = $zig
-    ArgumentList = @(
+    ArgumentList     = @(
         'build'
         '-p'
         'stage3'
@@ -146,9 +147,9 @@ Write-Host -Object "$(if ($cloneZls) { 'Cloned' } else { 'Pulled' }) zls."
 # build zls
 Write-Host -Object "Building zls..."
 $buildArgs = @{
-    ArgumentList = 'build', '-Doptimize=ReleaseSafe'
+    ArgumentList     = 'build', '-Doptimize=ReleaseSafe'
     WorkingDirectory = $zls
-    FilePath = $(
+    FilePath         = $(
         if ($buildFromSource) { "$zig\stage3\bin\zig.exe" }
         else { "$ziglang\release\zig.exe" }
     )
@@ -173,7 +174,7 @@ foreach ($path in $newPaths) {
 }
 
 # remove old paths
-$removePath = if ($buildFromSource) { "$ziglang\release"} else { "$zig\stage3\bin" }
+$removePath = if ($buildFromSource) { "$ziglang\release" } else { "$zig\stage3\bin" }
 if ($paths.Contains($removePath)) {
     Write-Host -Object "Removing '$removePath' from path"
     $paths = $paths -ne $removePath
@@ -182,9 +183,9 @@ if ($paths.Contains($removePath)) {
 
 # Set environment variables
 Write-Host -Object "Setting Environment Variables..."
-if ($buildFromSource -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User')}
+if ($buildFromSource -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') }
 if ($buildFromSource) { Write-Host -Object "`$Env:ZIG -> '$zig'" }
-if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User')}
+if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') }
 Write-Host -Object "`$Env:ZLS -> '$zls'"
 Get-Job | Wait-Job | Out-Null
 Write-Host -Object "Finished." -ForegroundColor Green
