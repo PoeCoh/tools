@@ -26,8 +26,8 @@ $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
     $ziglang = $using:ziglang
     $dir = "$ziglang\release"
     $zip = "$dir`.zip"
-    if (Test-Path -Path $zip) { Remove-Item -Path $zip -Recurse -Force | Out-Null }
-    if (Test-Path -Path $dir) { Remove-Item -Path $dir -Recurse -Force | Out-Null }
+    if (Test-Path -Path $zip) { Remove-Item -Path $zip -Recurse -Force }
+    if (Test-Path -Path $dir) { Remove-Item -Path $dir -Recurse -Force }
     $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
     $url = if ($PSVersionTable.PSVersion.Major -eq 5) {
         $response.Links.Where({ $_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64' }).href
@@ -80,8 +80,8 @@ Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
 Write-Host -Object "Fetching devkit..."
 $dir = "$ziglang\devkit"
 $zip = "$ziglang\devkit.zip"
-if (Test-Path -Path $zip) { Remove-Item -Path $zip -Recurse -Force | Out-Null }
-if (Test-Path -Path $dir) { Remove-Item -Path $dir -Recurse -Force | Out-Null }
+if (Test-Path -Path $zip) { Remove-Item -Path $zip -Recurse -Force }
+if (Test-Path -Path $dir) { Remove-Item -Path $dir -Recurse -Force }
 $content = Get-Content -Path "$ziglang\zig\ci\x86_64-windows-debug.ps1"
 $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
 $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
@@ -133,12 +133,10 @@ if ($build.ExitCode -ne 0) {
 
 if ($build.ExitCode -eq 0) {
     Write-Host -Object "Built zig."
-    $cleanup.Add("$ziglang\release")
+    $cleanup += "$ziglang\release"
 }
 
-Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-    Remove-Item -Path $using:cleanup -Recurse -Force | Out-Null
-}
+Start-Job -WorkingDirectory $ziglang -ScriptBlock { Remove-Item -Path $using:cleanup -Recurse -Force }
 
 # We need git to finish before we can build zls
 $gitZls.WaitForExit()
@@ -180,13 +178,13 @@ if ($paths.Contains($removePath)) {
     Write-Host -Object "Removing '$removePath' from path"
     $paths = $paths -ne $removePath
 }
-[Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
+[Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User')
 
 # Set environment variables
 Write-Host -Object "Setting Environment Variables..."
-if ($buildFromSource -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null }
+if ($buildFromSource -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User')}
 if ($buildFromSource) { Write-Host -Object "`$Env:ZIG -> '$zig'" }
-if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null }
+if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User')}
 Write-Host -Object "`$Env:ZLS -> '$zls'"
 Get-Job | Wait-Job | Out-Null
 Write-Host -Object "Finished." -ForegroundColor Green
