@@ -17,16 +17,19 @@ $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
 
+
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
 Write-Host -Object "Downloading release build..."
-$release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-    if (Test-Path -Path "$using:ziglang\release.zip") {
-        $hash = Get-FileHash -Path "$using:ziglang\release.zip" -Algorithm SHA256
+
+function Get-ReleaseBuild {
+    param ( [string]$Dir )
+    if (Test-Path -Path "$Dir\release.zip") {
+        $hash = Get-FileHash -Path "$Dir\release.zip" -Algorithm SHA256
     }
-    if (Test-Path -Path "$using:ziglang\release.zip") {
-        Remove-Item -Path "$using:ziglang\release.zip" -Recurse -Force
+    if (Test-Path -Path "$Dir\release.zip") {
+        Remove-Item -Path "$Dir\release.zip" -Recurse -Force
     }
     $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
     $url = if ($PSVersionTable.PSVersion.Major -eq 5) {
@@ -35,16 +38,16 @@ $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
         $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
         [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
     }
-    Invoke-WebRequest -Uri $url -OutFile "$using:ziglang\release.zip"
-    $hash2 = Get-FileHash -Path "$using:ziglang\release.zip" -Algorithm SHA256
-    if ($hash -and $hash2.Hash -eq $hash.Hash -and (Test-Path -Path "$using:ziglang\release")) {
-        # We're gonna assume these are fine if the hashes match
+    Invoke-WebRequest -Uri $url -OutFile "$Dir\release.zip"
+    $hash2 = Get-FileHash -Path "$Dir\release.zip" -Algorithm SHA256
+    if ($hash -and $hash2.Hash -eq $hash.Hash -and (Test-Path -Path "$Dir\release")) {
+        Write-Host -Object "Release build matches prior, skipping extraction."
         return
     }
-    if (Test-Path -Path "$using:ziglang\release") {
-        Remove-Item -Path "$using:ziglang\release" -Recurse -Force
+    if (Test-Path -Path "$Dir\release") {
+        Remove-Item -Path "$Dir\release" -Recurse -Force
     }
-    $folder = Expand-Archive -Path "$using:ziglang\release.zip" -DestinationPath $using:ziglang -Force -PassThru |
+    $folder = Expand-Archive -Path "$Dir\release.zip" -DestinationPath $Dir -Force -PassThru |
     Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
     Resolve-Path -Path "$folder\.." | Rename-Item -NewName 'release'
 }
@@ -124,15 +127,15 @@ if ($Source.IsPresent) {
         WorkingDirectory = $zig
     }
     if ($ReleaseSafe.IsPresent) { $buildArgs.ArgumentList += '-Doptimize=ReleaseSafe' }
-    $build = Start-Process @buildArgs -NoNewWindow -PassThru
+    $build = Start-Process @buildArgs -PassThru
+
+    # Start working on backup
+    Write-Host -Object "Downloading release build for secondary build method..."
+    Get-ReleaseBuild -Dir $ziglang
+
     $build.WaitForExit()
     if ($build.ExitCode -ne 0) {
         Write-Host -Object "Failed building zig, using release build."
-        
-        # Wait for release to finish
-        Wait-Job -Job $release | Out-Null
-        if ($release.State -ne [Management.Automation.JobState]::Completed) { throw "Failed to download release." }
-        Write-Host -Object "Extracted release build."
 
         # try building with release
         $buildArgs.FilePath = "$ziglang\release\zig.exe"
@@ -141,7 +144,6 @@ if ($Source.IsPresent) {
         if ($build.ExitCode -ne 0) { throw "Failed building zig." }
     }
     Write-Host -Object "Built Zig."
-
 } else {
     # Wait for release to finish
     Wait-Job -Job $release | Out-Null
