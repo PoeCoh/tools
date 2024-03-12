@@ -138,7 +138,7 @@ if ($BuildFromSource) {
     if ($build.ExitCode -eq 0) { Write-Host -Object "Built Zig." }
 } else {
     Wait-Job -Job $release | Out-Null
-    Write-Host -Object "Extracted release build."
+    Write-Host -Object "Fetched release build."
 }
 
 # We need git to finish before we can build zls
@@ -173,6 +173,11 @@ foreach ($path in $newPaths) {
         $paths += $path
         $Env:Path = $Env:Path + "$path;"
     }
+}
+$removePath = if ($buildFromSource) { "$ziglang\release"} else { "$zig\stage3\bin" }
+if ($paths.Contains($removePath)) {
+    Write-Host -Object "Removing '$removePath' from path"
+    $paths = $paths -ne $removePath
 }
 [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
 
