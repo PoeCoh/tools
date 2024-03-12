@@ -151,13 +151,12 @@ Write-Host -Object "Building zls..."
 $buildArgs = @{
     ArgumentList = 'build', '-Doptimize=ReleaseSafe'
     WorkingDirectory = $zls
-    WindowStyle = $windowStyle
     FilePath = $(
         if ($buildFromSource) { "$zig\stage3\bin\zig.exe" }
         else { "$ziglang\release\zig.exe" }
     )
 }
-$building = Start-Process @buildArgs -PassThru
+$building = Start-Process @buildArgs -PassThru -NoNewWindow
 $building.WaitForExit()
 if ($building.ExitCode -ne 0) { throw "Failed building zls." }
 Write-Host -Object "Built zls."
