@@ -87,15 +87,15 @@ if ($Source.IsPresent) {
     Remove-Item -Path "$ziglang\devkit.zip" -Recurse -Force
     Write-Host -Object "Extracted devkit."
 
-    # Wait for devkit and release to finish
-    Wait-Job -Job $release
-    if ($release.State -ne 'Completed') { throw "Failed to download release." }
+    # Wait for release to finish
+    Wait-Job -Job $release | Out-Null
+    if ($release.State -ne [Management.Automation.JobState]::Completed) { throw "Failed to download release." }
     Write-Host -Object "Extracted release build."
 
     # Build zig
     Write-Host -Object "Building Zig..."
     $buildingArgs = @{
-        FilePath = "$ziglang\release\zig.exe"
+        FilePath = "$ziglang\devkit\bin\zig.exe"
         ArgumentList = @(
             'build'
             '-p'
@@ -109,8 +109,12 @@ if ($Source.IsPresent) {
         WorkingDirectory = $zig
     }
     if ($ReleaseSafe.IsPresent) { $buildingArgs.ArgumentList += '-Doptimize=ReleaseSafe' }
-    $build = Start-Process @buildingArgs -Wait -NoNewWindow -PassThru
-    Write-Output -Object $build
+    $build = Start-Process @buildingArgs -NoNewWindow -PassThru
+    $build.WaitForExit()
+    if ($build.ExitCode -ne 0) {
+        Write-Host -Object "Failed building zig, using release build."
+        $build = Start-Process @buildArgs -NoNewWindow -PassThru -FilePath "$ziglang\release\zig.exe"
+    }
 
     # Clean up, we don't need these if we built from source
     Get-ChildItem -Path $ziglang |
@@ -127,6 +131,11 @@ if ($Source.IsPresent) {
     }
     [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
     Write-Host -Object "`$Env:ZIG -> '$zig'"
+} else {
+    # Wait for release to finish
+    Wait-Job -Job $release
+    if ($release.State -ne 'Completed') { throw "Failed to download release." }
+    Write-Host -Object "Extracted release build."
 }
 
 # We need git to finish before we can build zls
