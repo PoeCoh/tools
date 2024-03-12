@@ -30,7 +30,7 @@ $windowStyle = if ($PSBoundParameters.ContainsKey('Debug')) { 'Normal' } else { 
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
-Write-Host -Object "Downloading latest release build..."
+Write-Host -Object "Fetching latest release build..."
 $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
     $ziglang = $using:ziglang
     $dir = "$ziglang\release"
@@ -48,22 +48,6 @@ $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
     $folder = Expand-Archive -Path $zip -DestinationPath $ziglang -Force -PassThru |
         Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
     Resolve-Path -Path "$folder\.." | Rename-Item -NewName 'release'
-}
-
-# for use later
-$devkitBlock = {
-    $ziglang = $using:ziglang
-    $dir = "$ziglang\devkit"
-    $zip = "$ziglang\devkit.zip"
-    if (Test-Path -Path $zip) { Remove-Item -Path $zip -Recurse -Force | Out-Null }
-    if (Test-Path -Path $dir) { Remove-Item -Path $dir -Recurse -Force | Out-Null }
-    $content = Get-Content -Path "$ziglang\zig\ci\x86_64-windows-debug.ps1"
-    $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
-    $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
-    Invoke-WebRequest -Uri $url -OutFile $zip
-    $folder = Expand-Archive -Path $zip -DestinationPath $ziglang -Force -PassThru |
-        Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
-    Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
 }
 
 $gitSplat = @{
@@ -103,16 +87,31 @@ if ($BuildFromSource) {
     Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
 
     # Download devkit, requires data from zig repo
-    Write-Host -Object "Downloading devkit..."
-    Start-Job -ScriptBlock $devkitBlock -WorkingDirectory $ziglang | Wait-Job | Out-Null
-    Write-Host -Object "Extracted devkit."
+    Write-Host -Object "Fetching devkit..."
+    $dir = "$ziglang\devkit"
+    $zip = "$ziglang\devkit.zip"
+    if (Test-Path -Path $zip) { Remove-Item -Path $zip -Recurse -Force | Out-Null }
+    if (Test-Path -Path $dir) { Remove-Item -Path $dir -Recurse -Force | Out-Null }
+    $content = Get-Content -Path "$ziglang\zig\ci\x86_64-windows-debug.ps1"
+    $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
+    $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
+    Invoke-WebRequest -Uri $url -OutFile $zip
+    $folder = Expand-Archive -Path $zip -DestinationPath $ziglang -Force -PassThru |
+        Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
+    Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
+    Write-Host -Object "Got devkit."
+
+    Wait-Job -Job $release | Out-Null
+    Write-Host -Object "Got release build. Copying files..."
+    Copy-Item -Path "$ziglang\release\lib" -Destination "$ziglang\devkit\lib" -Recurse -Force
+    Copy-Item -Path "$ziglang\release\zig.exe" -Destination "$ziglang\devkit\bin\zig.exe" -Force
+    Write-Host -Object "Copied files."
 
     # Build zig with devkit
     Write-Host -Object "Building Zig..."
     $buildArgs = @{
         FilePath = "$ziglang\devkit\bin\zig.exe"
         WorkingDirectory = $zig
-        WindowStyle = $windowStyle
         ArgumentList = @(
             'build'
             '-p'
@@ -127,20 +126,8 @@ if ($BuildFromSource) {
         )
     }
     if ($ReleaseSafe.IsPresent) { $buildArgs.ArgumentList += '-Doptimize=ReleaseSafe' }
-    $build = Start-Process @buildArgs -PassThru
+    $build = Start-Process @buildArgs -PassThru -NoNewWindow
     $build.WaitForExit()
-
-    # try building with release
-    if ($build.ExitCode -ne 0) {
-        Write-Host -Object "Failed. Using latest release..."
-        Wait-Job -Job $release | Out-Null
-        Write-Host -Object "Copying files..."
-        Copy-Item -Path "$ziglang\release\lib" -Destination "$ziglang\devkit\lib" -Recurse -Force
-        Copy-Item -Path "$ziglang\release\zig.exe" -Destination "$ziglang\devkit\bin\zig.exe" -Force
-        Write-Host -Object "Building Zig..."
-        $build = Start-Process @buildArgs -PassThru
-        $build.WaitForExit()
-    }
 
     # fallback to just using release build
     if ($build.ExitCode -ne 0) {
