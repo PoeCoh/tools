@@ -129,7 +129,7 @@ if ($Source.IsPresent) {
         Remove-Item -Recurse -Force
 } else {
     # Wait for release to finish
-    Wait-Job -Job $release
+    Wait-Job -Job $release | Out-Null
     if ($release.State -ne 'Completed') { throw "Failed to download release." }
     Write-Host -Object "Extracted release build."
 }
