@@ -174,6 +174,8 @@ foreach ($path in $newPaths) {
         $Env:Path = $Env:Path + "$path;"
     }
 }
+
+# remove old paths
 $removePath = if ($buildFromSource) { "$ziglang\release"} else { "$zig\stage3\bin" }
 if ($paths.Contains($removePath)) {
     Write-Host -Object "Removing '$removePath' from path"
