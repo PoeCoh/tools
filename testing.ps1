@@ -78,6 +78,11 @@ $gitZlsSplat = @{
 Write-Host -Object "$(if ($cloneZls) { 'Cloning' } else { 'Pulling' }) zls..."
 $gitZls = Start-Process @gitZlsSplat -PassThru
 
+if (-not $Source.IsPresent) {
+    Write-Host -Object "Downloading release build..."
+    Get-ReleaseBuild -Dir $ziglang
+}
+
 # build zig
 if ($Source.IsPresent) {
     # we need zig cloned/updated to get the version for devkit
@@ -144,11 +149,6 @@ if ($Source.IsPresent) {
         if ($build.ExitCode -ne 0) { throw "Failed building zig." }
     }
     Write-Host -Object "Built Zig."
-} else {
-    # Wait for release to finish
-    Wait-Job -Job $release | Out-Null
-    if ($release.State -ne 'Completed') { throw "Failed to download release." }
-    Write-Host -Object "Extracted release build."
 }
 
 # We need git to finish before we can build zls
