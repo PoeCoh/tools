@@ -22,8 +22,11 @@ New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
 Write-Host -Object "Downloading release build..."
 $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-    if (Test-Path -Path "$using:ziglang\release") {
-        Remove-Item -Path "$using:ziglang\release" -Recurse -Force
+    if (Test-Path -Path "$using:ziglang\release.zip") {
+        $hash = Get-FileHash -Path "$using:ziglang\release.zip" -Algorithm SHA256
+    }
+    if (Test-Path -Path "$using:ziglang\release.zip") {
+        Remove-Item -Path "$using:ziglang\release.zip" -Recurse -Force
     }
     $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
     $url = if ($PSVersionTable.PSVersion.Major -eq 5) {
@@ -33,10 +36,17 @@ $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
         [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
     }
     Invoke-WebRequest -Uri $url -OutFile "$using:ziglang\release.zip"
+    $hash2 = Get-FileHash -Path "$using:ziglang\release.zip" -Algorithm SHA256
+    if ($hash -and $hash2.Hash -eq $hash.Hash -and (Test-Path -Path "$using:ziglang\release")) {
+        # We're gonna assume these are fine if the hashes match
+        return
+    }
+    if (Test-Path -Path "$using:ziglang\release") {
+        Remove-Item -Path "$using:ziglang\release" -Recurse -Force
+    }
     $folder = Expand-Archive -Path "$using:ziglang\release.zip" -DestinationPath $using:ziglang -Force -PassThru |
-        Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
+    Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
     Resolve-Path -Path "$folder\.." | Rename-Item -NewName 'release'
-    Remove-Item -Path "$using:ziglang\release.zip" -Recurse -Force
 }
 
 # Start cloning/pulling zig
@@ -74,19 +84,28 @@ if ($Source.IsPresent) {
 
     # Download devkit
     Write-Host -Object "Downloading devkit..."
-    if (Test-Path -Path "$ziglang\devkit") {
-        Remove-Item -Path "$ziglang\devkit" -Recurse -Force
-    }
+    # if (Test-Path -Path "$ziglang\devkit") {
+    #     Remove-Item -Path "$ziglang\devkit" -Recurse -Force
+    # }
     $content = Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1"
     $version = ($content[1] -Split 'TARGET')[1].TrimEnd('"')
     $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu$version.zip"
+    if (Test-Path -Path "$ziglang\devkit.zip") {
+        $hash = Get-FileHash -Path "$ziglang\devkit.zip" -Algorithm SHA256
+    }
+    if (Test-Path -Path "$ziglang\devkit.zip") {
+        Remove-Item -Path "$ziglang\devkit.zip" -Recurse -Force
+    }
     Invoke-WebRequest -Uri $url -OutFile "$ziglang\devkit.zip"
-    $folder = Expand-Archive -Path "$ziglang\devkit.zip" -DestinationPath $ziglang -Force -PassThru |
-        Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
-    Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
-    Remove-Item -Path "$ziglang\devkit.zip" -Recurse -Force
-    Write-Host -Object "Extracted devkit."
-
+    $hash2 = Get-FileHash -Path "$ziglang\devkit.zip" -Algorithm SHA256
+    if (-not ($hash -and $hash2.Hash -eq $hash.Hash -and (Test-Path -Path "$ziglang\devkit"))) {
+        $folder = Expand-Archive -Path "$ziglang\devkit.zip" -DestinationPath $ziglang -Force -PassThru |
+            Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
+        Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
+        Write-Host -Object "Extracted devkit."
+    } else {
+        Write-Host -Object "Devkit hash matches prior, skipping extraction."
+    }
     
     # Build zig
     Write-Host -Object "Building Zig..."
@@ -123,10 +142,6 @@ if ($Source.IsPresent) {
     }
     Write-Host -Object "Built Zig."
 
-    # Clean up, we don't need these if we built from source
-    Get-ChildItem -Path $ziglang |
-        Where-Object -FilterScript { $_.Name -match 'devkit|release' } |
-        Remove-Item -Recurse -Force
 } else {
     # Wait for release to finish
     Wait-Job -Job $release | Out-Null
