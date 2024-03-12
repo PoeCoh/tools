@@ -90,7 +90,7 @@ if ($Source.IsPresent) {
     
     # Build zig
     Write-Host -Object "Building Zig..."
-    $buildingArgs = @{
+    $buildArgs = @{
         FilePath = "$ziglang\devkit\bin\zig.exe"
         ArgumentList = @(
             'build'
@@ -104,8 +104,8 @@ if ($Source.IsPresent) {
         )
         WorkingDirectory = $zig
     }
-    if ($ReleaseSafe.IsPresent) { $buildingArgs.ArgumentList += '-Doptimize=ReleaseSafe' }
-    $build = Start-Process @buildingArgs -NoNewWindow -PassThru
+    if ($ReleaseSafe.IsPresent) { $buildArgs.ArgumentList += '-Doptimize=ReleaseSafe' }
+    $build = Start-Process @buildArgs -NoNewWindow -PassThru
     $build.WaitForExit()
     if ($build.ExitCode -ne 0) {
         Write-Host -Object "Failed building zig, using release build."
@@ -116,20 +116,7 @@ if ($Source.IsPresent) {
         Write-Host -Object "Extracted release build."
 
         # try building with release
-        $buildArgs = @{
-            FilePath = "$ziglang\zig.exe"
-            ArgumentList = @(
-                'build'
-                '-p'
-                'stage3'
-                "--search-prefix $ziglang\devkit"
-                '--zig-lib-dir lib'
-                '-Dstatic-llvm'
-                '-Duse-zig-libcxx'
-                '-Dtarget=x86_64-windows-gnu'
-            )
-            WorkingDirectory = $zig
-        }
+        $buildArgs.FilePath = "$ziglang\zig.exe"
         $build = Start-Process @buildArgs -NoNewWindow -PassThru
         $build.WaitForExit()
         if ($build.ExitCode -ne 0) { throw "Failed building zig." }
