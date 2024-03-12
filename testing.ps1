@@ -16,6 +16,7 @@ param (
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
+$buildFromSource = $Source.IsPresent
 
 
 # create ziglang directory if it doesn't exist
@@ -51,7 +52,7 @@ function Get-ReleaseBuild {
 }
 
 # Start cloning/pulling zig
-if ($Source.IsPresent) {
+if ($buildFromSource) {
     $cloneZig = (Test-Path -Path "$zig\.git") -eq $false
     $gitZigSplat = @{
         FilePath = 'git'
@@ -76,13 +77,13 @@ $gitZlsSplat = @{
 Write-Host -Object "$(if ($cloneZls) { 'Cloning' } else { 'Pulling' }) zls..."
 $gitZls = Start-Process @gitZlsSplat -PassThru
 
-if (-not $Source.IsPresent) {
+if (-not $BuildFromSource) {
     Write-Host -Object "Downloading release build..."
     Get-ReleaseBuild -Dir $ziglang
 }
 
 # build zig
-if ($Source.IsPresent) {
+if ($BuildFromSource) {
     # we need zig cloned/updated to get the version for devkit
     $gitZig.WaitForExit()
     if ($gitZig.ExitCode -ne 0) { throw "Failed to clone or pull zig." }
@@ -148,7 +149,7 @@ if ($Source.IsPresent) {
 
     if ($build.ExitCode -ne 0) {
         Write-Host -Object "Falling back to release build"
-        $Source.IsPresent = $false
+        $buildFromSource = $false
     }
 
     if ($build.ExitCode -eq 0) { Write-Host -Object "Built Zig." }
@@ -162,7 +163,7 @@ Write-Host -Object "$(if ($cloneZls) { 'Cloned' } else { 'Pulled' }) zls."
 # build zls
 Write-Host -Object "Building zls..."
 $buildArgs = @{
-    FilePath = if ($Source.IsPresent) { "$zig\stage3\bin\zig.exe" }
+    FilePath = if ($buildFromSource) { "$zig\stage3\bin\zig.exe" }
                else { "$ziglang\release\zig.exe" }
     ArgumentList = 'build', '-Doptimize=ReleaseSafe'
     WorkingDirectory = $zls
@@ -175,7 +176,7 @@ if ($building.ExitCode -ne 0) { throw "Failed building zls." }
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
 $newPaths = @(
     "$zls\zig-out\bin"
-    if ($Source.IsPresent) { "$zig\stage3\bin" } else { "$ziglang\release" }
+    if ($buildFromSource) { "$zig\stage3\bin" } else { "$ziglang\release" }
 )
 foreach ($path in $newPaths) {
     if (-not $paths.Contains($path)) {
@@ -188,7 +189,7 @@ foreach ($path in $newPaths) {
 
 # Set environment variables
 Write-Host -Object "Setting Environment Variables..."
-if ($Source.IsPresent -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null }
-if ($Source.IsPresent) { Write-Host -Object "`$Env:ZIG -> '$zig'" }
+if ($buildFromSource -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null }
+if ($buildFromSource) { Write-Host -Object "`$Env:ZIG -> '$zig'" }
 if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null }
 Write-Host -Object "`$Env:ZLS -> '$zls'"
