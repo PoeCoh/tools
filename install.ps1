@@ -25,7 +25,6 @@ $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
 $buildFromSource = $Source.IsPresent
-$windowStyle = if ($PSBoundParameters.ContainsKey('Debug')) { 'Normal' } else { 'Hidden' }
 
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
@@ -54,7 +53,10 @@ $gitSplat = @{
     FilePath = 'git'
     WorkingDirectory = ''
     ArgumentList = $null
-    WindowStyle = $windowStyle
+    WindowStyle = $(
+        if ($PSBoundParameters.ContainsKey('Debug')) { 'Normal' }
+        else { 'Hidden' }
+    )
 }
 
 # Start cloning/pulling zig
