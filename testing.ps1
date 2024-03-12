@@ -135,7 +135,7 @@ if ($Source.IsPresent) {
         Write-Host -Object "Extracted release build."
 
         # try building with release
-        $buildArgs.FilePath = "$ziglang\zig.exe"
+        $buildArgs.FilePath = "$ziglang\release\zig.exe"
         $build = Start-Process @buildArgs -NoNewWindow -PassThru
         $build.WaitForExit()
         if ($build.ExitCode -ne 0) { throw "Failed building zig." }
