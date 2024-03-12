@@ -18,7 +18,7 @@ trap {
     Write-Host -Object "Waiting for any running jobs to finish..."
     Get-Job | Wait-Job | Out-Null
     Write-Host -Object "Exiting."
-    exit
+    return
 }
 
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
