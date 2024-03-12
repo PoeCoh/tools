@@ -144,7 +144,7 @@ if ($Source.IsPresent) {
 
         # try building with release
         $buildArgs.FilePath = "$ziglang\release\zig.exe"
-        $build = Start-Process @buildArgs -NoNewWindow -PassThru
+        $build = Start-Process @buildArgs -PassThru
         $build.WaitForExit()
         if ($build.ExitCode -ne 0) { throw "Failed building zig." }
     }
