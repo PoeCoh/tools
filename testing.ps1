@@ -91,7 +91,7 @@ if ($buildFromSource) {
         else { 'pull', 'origin' }
     )
     Write-Host -Object "$(if ($cloneZig) { 'Cloning' } else { 'Pulling' }) zig..."
-    $gitZig = Start-Process @gitZigSplat -PassThru
+    $gitZig = Start-Process @gitSplat -PassThru
 }
 
 # Start cloning/pulling zls
@@ -102,7 +102,7 @@ $gitSplat.ArgumentList = $(
     else { 'pull', 'origin' }
 )
 Write-Host -Object "$(if ($cloneZls) { 'Cloning' } else { 'Pulling' }) zls..."
-$gitZls = Start-Process @gitZlsSplat -PassThru
+$gitZls = Start-Process @gitSplat -PassThru
 
 # build zig
 if ($BuildFromSource) {
