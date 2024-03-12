@@ -108,7 +108,7 @@ if ($BuildFromSource) {
     Write-Host -Object "Copied files."
 
     # Build zig with devkit
-    Write-Host -Object "Building Zig..."
+    Write-Host -Object "Building zig..."
     $buildArgs = @{
         FilePath = "$ziglang\devkit\bin\zig.exe"
         WorkingDirectory = $zig
@@ -129,13 +129,27 @@ if ($BuildFromSource) {
     $build = Start-Process @buildArgs -PassThru -NoNewWindow
     $build.WaitForExit()
 
+    $cleanup = @(
+        "$ziglang\devkit"
+        "$ziglang\devkit.zip"
+        "$ziglang\release.zip"
+    )
+
     # fallback to just using release build
     if ($build.ExitCode -ne 0) {
         Write-Host -Object "Failed. Falling back to release build"
         $buildFromSource = $false
     }
 
-    if ($build.ExitCode -eq 0) { Write-Host -Object "Built Zig." }
+    if ($build.ExitCode -eq 0) {
+        Write-Host -Object "Built zig."
+        $cleanup.Add("$ziglang\release")
+    }
+
+    Start-Job -WorkingDirectory $ziglang -ScriptBlock {
+        Remove-Item -Path $using:cleanup -Recurse -Force | Out-Null
+    }
+
 } else {
     Wait-Job -Job $release | Out-Null
     Write-Host -Object "Fetched release build."
@@ -189,3 +203,5 @@ if ($buildFromSource -and $Env:Zig -ne $zig) { [Environment]::SetEnvironmentVari
 if ($buildFromSource) { Write-Host -Object "`$Env:ZIG -> '$zig'" }
 if ($Env:ZLS -ne $zls) { [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User') | Out-Null }
 Write-Host -Object "`$Env:ZLS -> '$zls'"
+Get-Job | Wait-Job | Out-Null
+Write-Host -Object "Finished." -ForegroundColor Green
