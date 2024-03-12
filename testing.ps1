@@ -153,6 +153,19 @@ if ($BuildFromSource) {
         Wait-Job -Job $release | Out-Null
         Write-Host -Object "Extracted release build."
         $buildArgs.FilePath = "$ziglang\release\zig.exe"
+        $buildArgs.ArgumentList = @(
+            'build'
+            '-p'
+            'stage3'
+            '--search-prefix'
+            "$ziglang\release"
+            '--zig-lib-dir'
+            'lib'
+            '-Dstatic-llvm'
+            '-Duse-zig-libcxx'
+            '-Dtarget=x86_64-windows-gnu'
+            if ($ReleaseSafe.IsPresent) { '-Doptimize=ReleaseSafe' }    
+        )
         $build = Start-Process @buildArgs -PassThru
         $build.WaitForExit()
     }
