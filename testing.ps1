@@ -21,8 +21,6 @@ $zls = "$ziglang\zls"
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
-Write-Host -Object "Downloading release build..."
-
 function Get-ReleaseBuild {
     param ( [string]$Dir )
     if (Test-Path -Path "$Dir\release.zip") {
@@ -137,8 +135,8 @@ if ($Source.IsPresent) {
     # Start working on backup
     Write-Host -Object "Downloading release build for secondary build method..."
     Get-ReleaseBuild -Dir $ziglang
-
     $build.WaitForExit()
+
     if ($build.ExitCode -ne 0) {
         Write-Host -Object "Failed building zig, using release build."
 
@@ -146,9 +144,14 @@ if ($Source.IsPresent) {
         $buildArgs.FilePath = "$ziglang\release\zig.exe"
         $build = Start-Process @buildArgs -PassThru
         $build.WaitForExit()
-        if ($build.ExitCode -ne 0) { throw "Failed building zig." }
     }
-    Write-Host -Object "Built Zig."
+
+    if ($build.ExitCode -ne 0) {
+        Write-Host -Object "Falling back to release build"
+        $Source.IsPresent = $false
+    }
+
+    if ($build.ExitCode -eq 0) { Write-Host -Object "Built Zig." }
 }
 
 # We need git to finish before we can build zls
