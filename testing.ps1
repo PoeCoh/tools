@@ -12,6 +12,14 @@ param (
     [parameter()]
     [switch]$ReleaseSafe
 )
+$ErrorActionPreference = [Management.Automation.ActionPreference]::Stop
+trap {
+    Write-Host -Object $_.Exception.Message
+    Write-Host -Object "Waiting for any running jobs to finish..."
+    Get-Job | Wait-Job | Out-Null
+    Write-Host -Object "Exiting."
+    exit
+}
 
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
