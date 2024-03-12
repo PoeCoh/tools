@@ -123,17 +123,6 @@ if ($Source.IsPresent) {
     Get-ChildItem -Path $ziglang |
         Where-Object -FilterScript { $_.Name -match 'devkit|release' } |
         Remove-Item -Recurse -Force
-
-    # Set zig path and environment variable
-    $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
-    if (-not $paths.Contains("$zig\stage3\bin")) {
-        Write-Host -Object "Adding zig to path"
-        $paths += "$zig\stage3\bin"
-        [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User') | Out-Null
-        $Env:Path = $Env:Path + ';' + "$zig\stage3\bin" + ';'
-    }
-    [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User') | Out-Null
-    Write-Host -Object "`$Env:ZIG -> '$zig'"
 } else {
     # Wait for release to finish
     Wait-Job -Job $release
