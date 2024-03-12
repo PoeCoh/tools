@@ -108,16 +108,33 @@ if ($Source.IsPresent) {
     $build = Start-Process @buildingArgs -NoNewWindow -PassThru
     $build.WaitForExit()
     if ($build.ExitCode -ne 0) {
+        Write-Host -Object "Failed building zig, using release build."
+        
         # Wait for release to finish
         Wait-Job -Job $release | Out-Null
         if ($release.State -ne [Management.Automation.JobState]::Completed) { throw "Failed to download release." }
         Write-Host -Object "Extracted release build."
 
-        Write-Host -Object "Failed building zig, using release build."
-        $build = Start-Process @buildArgs -NoNewWindow -PassThru -FilePath "$ziglang\release\zig.exe"
+        # try building with release
+        $buildArgs = @{
+            FilePath = "$ziglang\zig.exe"
+            ArgumentList = @(
+                'build'
+                '-p'
+                'stage3'
+                "--search-prefix $ziglang\devkit"
+                '--zig-lib-dir lib'
+                '-Dstatic-llvm'
+                '-Duse-zig-libcxx'
+                '-Dtarget=x86_64-windows-gnu'
+            )
+            WorkingDirectory = $zig
+        }
+        $build = Start-Process @buildArgs -NoNewWindow -PassThru
         $build.WaitForExit()
         if ($build.ExitCode -ne 0) { throw "Failed building zig." }
     }
+    Write-Host -Object "Built Zig."
 
     # Clean up, we don't need these if we built from source
     Get-ChildItem -Path $ziglang |
