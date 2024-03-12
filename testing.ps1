@@ -85,11 +85,12 @@ if ($Source.IsPresent) {
         Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
     Resolve-Path -Path "$folder\..\.." | Rename-Item -NewName 'devkit'
     Remove-Item -Path "$ziglang\devkit.zip" -Recurse -Force
-    Write-Host -Object "Devkit downloaded and extracted."
+    Write-Host -Object "Extracted devkit."
 
     # Wait for devkit and release to finish
     Wait-Job -Job $release
-    Write-Host -Object $release.State
+    if ($release.State -ne 'Completed') { throw "Failed to download release." }
+    Write-Host -Object "Extracted release build."
 
     # Build zig
     Write-Host -Object "Building Zig..."
