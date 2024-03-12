@@ -18,7 +18,6 @@ $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
 $buildFromSource = $Source.IsPresent
 
-
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
