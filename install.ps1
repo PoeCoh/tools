@@ -18,6 +18,23 @@ $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
 $buildFromSource = $true
 
+
+$downloadBlock = {
+    param ( $Url, $WorkingDirectory, $OutFile )
+    Invoke-WebRequest -Uri $Url -OutFile $OutFile
+    $folders = Expand-Archive -Path $OutFile -DestinationPath $WorkingDirectory -Force -PassThru
+    $folders = $folders -split '\\'
+    $index = [array]::IndexOf($folders, 'ziglang') + 1
+    $folders[0..$index] -join '\'
+}
+
+$cleanupBlock = {
+    param ( $items )
+    Remove-Item -Path $items -Recurse -Force
+}
+
+$threads = $null -ne (Get-Command -Name 'Start-ThreadJob')
+
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
@@ -36,26 +53,14 @@ else {
     [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
 }
 
-Write-Host -Object "Dev: $devkitUrl"
-Write-Host -Object "Release: $releaseUrl"
-
-$scriptBlock = {
-    param ( $Url, $WorkingDirectory, $OutFile )
-    Invoke-WebRequest -Uri $Url -OutFile $OutFile
-    $folders = Expand-Archive -Path $OutFile -DestinationPath $WorkingDirectory -Force -PassThru
-    $folders = $folders -split '\\'
-    $index = [array]::IndexOf($folders, 'ziglang') + 1
-    $folders[0..$index] -join '\'
-}
-
-Write-Host -Object "Fetching latest release build..."
-if (Get-Command -Name 'Start-ThreadJob') {
-    $release = Start-ThreadJob -ScriptBlock $scriptBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
-    $devKit = Start-ThreadJob -ScriptBlock $scriptBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+Write-Host -Object "Fetching devkit and latest release build..."
+if ($threads) {
+    $release = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
+    $devKit = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
 }
 else {
-    $release = Start-Job -ScriptBlock $scriptBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
-    $devkit = Start-Job -ScriptBlock $scriptBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+    $release = Start-Job -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
+    $devkit = Start-Job -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
 }
 
 $gitSplat = @{
@@ -96,13 +101,16 @@ $devkitDir = Receive-Job -Job $devkit
 Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
 Write-Host -Object "Copied files."
-Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-    $trash = @(
-        $using:release.Output
-        "$($using:release.Output).zip"
-        "$($using:devkit.Output).zip"
-    )
-    Remove-Item -Path $trash -Recurse -Force
+$trash = @(
+    $releaseDir,
+    "$releaseDir.zip",
+    "$devkitDir.zip"
+)
+if ($threads) {
+    Start-ThreadJob -ScriptBlock $cleanupBlock -ArgumentList $trash
+}
+else {
+    Start-Job -ScriptBlock $cleanupBlock -ArgumentList $trash
 }
 
 $gitZig.WaitForExit()
