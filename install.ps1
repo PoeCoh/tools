@@ -39,9 +39,10 @@ else {
 Write-Host -Object "Dev: $devkitUrl"
 Write-Host -Object "Release: $releaseUrl"
 
-function Get-Folder {
-    param ( [string]$Path )
-    $folders = Expand-Archive -Path $Path -DestinationPath "$Env:ZIG\.." -Force -PassThru
+$scriptBlock = {
+    param ( $Url, $WorkingDirectory, $OutFile )
+    Invoke-WebRequest -Uri $Url -OutFile $OutFile
+    $folders = Expand-Archive -Path $OutFile -DestinationPath $WorkingDirectory -Force -PassThru
     $folders = $folders -split '\\'
     $index = [array]::IndexOf($folders, 'ziglang') + 1
     $folders[0..$index] -join '\'
@@ -49,27 +50,12 @@ function Get-Folder {
 
 Write-Host -Object "Fetching latest release build..."
 if (Get-Command -Name 'Start-ThreadJob') {
-    Write-Host -Object "Using Start-ThreadJob"
-    $release = Start-ThreadJob -ScriptBlock {
-        Invoke-WebRequest -Uri $using:releaseURL -OutFile "$using:ziglang\release.zip"
-        Get-Folder -Path "$using:ziglang\release.zip"
-    }
-    $devKit = Start-ThreadJob -ScriptBlock {
-        Invoke-WebRequest -Uri $using:devkitUrl -OutFile "$using:ziglang\devkit.zip"
-        Get-Folder -Path "$using:ziglang\devkit.zip"
-    }
+    $release = Start-ThreadJob -ScriptBlock $scriptBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
+    $devKit = Start-ThreadJob -ScriptBlock $scriptBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
 }
 else {
-    $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-        Invoke-WebRequest -Uri $using:releaseUrl -OutFile  "$using:ziglang\release.zip"
-        Get-Folder -Path  "$using:ziglang\release.zip"
-    }
-    
-    Write-Host -Object "Fetching devkit..."
-    $devkit = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-        Invoke-WebRequest -Uri $using:devkitUrl -OutFile "$using:ziglang\devkit.zip"
-        Get-Folder -Path "$using:ziglang\devkit.zip"
-    }
+    $release = Start-Job -ScriptBlock $scriptBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
+    $devkit = Start-Job -ScriptBlock $scriptBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
 }
 
 $gitSplat = @{
