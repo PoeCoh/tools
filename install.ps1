@@ -3,7 +3,7 @@
 # To pass flags to the script, append them like this:
 # PS> iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Debug"
 
-# I don't want to the "IEX is dangerous" argument, a large chunk of linux
+# I don't want to hear the "IEX is dangerous" argument, a large chunk of linux
 # install scripts follow this pattern and the world hasn't burned yet.
 [CmdletBinding()]
 param ()
