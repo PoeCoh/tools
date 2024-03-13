@@ -47,26 +47,24 @@ function Get-Folder {
 Write-Host -Object "Fetching latest release build..."
 if (Get-Command -Name 'Start-ThreadJob') {
     $release = Start-ThreadJob -ScriptBlock {
-        Invoke-WebRequest -Uri $releaseURL -OutFile "$ziglang\release.zip"
-        Get-Folder -Path "$ziglang\release.zip"
+        Invoke-WebRequest -Uri $using:releaseURL -OutFile "$using:ziglang\release.zip"
+        Get-Folder -Path "$using:ziglang\release.zip"
     }
     $devKit = Start-ThreadJob -ScriptBlock {
-        Invoke-WebRequest -Uri $devkitUrl -OutFile "$ziglang\devkit.zip"
-        Get-Folder -Path "$ziglang\devkit.zip"
+        Invoke-WebRequest -Uri $using:devkitUrl -OutFile "$using:ziglang\devkit.zip"
+        Get-Folder -Path "$using:ziglang\devkit.zip"
     }
 }
 else {
     $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-        $ziglang = $using:ziglang
-        Invoke-WebRequest -Uri $using:releaseUrl -OutFile  "$ziglang\release.zip"
-        Get-Folder -Path  "$ziglang\release.zip"
+        Invoke-WebRequest -Uri $using:releaseUrl -OutFile  "$using:ziglang\release.zip"
+        Get-Folder -Path  "$using:ziglang\release.zip"
     }
     
     Write-Host -Object "Fetching devkit..."
     $devkit = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-        $ziglang = $using:ziglang
-        Invoke-WebRequest -Uri $using:devkitUrl -OutFile "$ziglang\devkit.zip"
-        Get-Folder -Path "$ziglang\devkit.zip"
+        Invoke-WebRequest -Uri $using:devkitUrl -OutFile "$using:ziglang\devkit.zip"
+        Get-Folder -Path "$using:ziglang\devkit.zip"
     }
 }
 
