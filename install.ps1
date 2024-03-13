@@ -21,37 +21,53 @@ $buildFromSource = $true
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
+# DevKit URL
+$raw = Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/ziglang/zig/master/ci/x86_64-windows-debug.ps1'
+$version = [regex]::new('(?s)(?<=\$TARGET-).+?(?="\n)').Match($raw).Value
+$devkitUrl = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu-$version.zip"
 
-Write-Host -Object "Fetching latest release build..."
-$release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-    $ziglang = $using:ziglang
-    $dir = "$ziglang\release"
-    $zip = "$dir`.zip"
-    $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
-    $url = if ($PSVersionTable.PSVersion.Major -eq 5) {
-        $response.Links.Where({ $_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64' }).href
-    }
-    else {
-        $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
-        [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
-    }
-    Invoke-WebRequest -Uri $url -OutFile $zip
-    $folder = Expand-Archive -Path $zip -DestinationPath $ziglang -Force -PassThru |
-    Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
-    Resolve-Path -Path "$folder\.."
+#Release URL
+$response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
+$releaseURL = if ($PSVersionTable.PSVersion.Major -eq 5) {
+    $response.Links.Where({ $_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64' }).href
+}
+else {
+    $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
+    [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
 }
 
-Write-Host -Object "Fetching devkit..."
-$devkit = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-    $ziglang = $using:ziglang
-    $zip = "$ziglang\devkit.zip"
-    $raw = Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/ziglang/zig/master/ci/x86_64-windows-debug.ps1'
-    $version = [regex]::new('(?s)(?<=\$TARGET-).+?(?="\n)').Match($raw).Value
-    $url = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu-$version.zip"
-    Invoke-WebRequest -Uri $url -OutFile $zip
-    $folder = Expand-Archive -Path $zip -DestinationPath $ziglang -Force -PassThru |
-    Where-Object -FilterScript { $_.FullName -match 'zig\.exe$' }
-    Resolve-Path -Path "$folder\..\.."
+function Get-Folder {
+    param ( [string]$Path )
+    $folders = Expand-Archive -Path $Path -DestinationPath "$Env:ZIG\.." -Force -PassThru
+    $folders = $folders -split '\\'
+    $index = [array]::IndexOf($folders, 'ziglang') + 1
+    $folders[0..$index] -join '\'
+}
+
+Write-Host -Object "Fetching latest release build..."
+if (Get-Command -Name 'Start-ThreadJob') {
+    $release = Start-ThreadJob -ScriptBlock {
+        Invoke-WebRequest -Uri $releaseURL -OutFile "$ziglang\release.zip"
+        Get-Folder -Path "$ziglang\release.zip"
+    }
+    $devKit = Start-ThreadJob -ScriptBlock {
+        Invoke-WebRequest -Uri $devkitUrl -OutFile "$ziglang\devkit.zip"
+        Get-Folder -Path "$ziglang\devkit.zip"
+    }
+}
+else {
+    $release = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
+        $ziglang = $using:ziglang
+        Invoke-WebRequest -Uri $using:releaseUrl -OutFile  "$ziglang\release.zip"
+        Get-Folder -Path  "$ziglang\release.zip"
+    }
+    
+    Write-Host -Object "Fetching devkit..."
+    $devkit = Start-Job -WorkingDirectory $ziglang -ScriptBlock {
+        $ziglang = $using:ziglang
+        Invoke-WebRequest -Uri $using:devkitUrl -OutFile "$ziglang\devkit.zip"
+        Get-Folder -Path "$ziglang\devkit.zip"
+    }
 }
 
 $gitSplat = @{
@@ -87,8 +103,10 @@ $gitZls = Start-Process @gitSplat -PassThru
 # Wait for release and devkit to finish
 Wait-Job -Job $release, $devkit | Out-Null
 Write-Host -Object "Got devkit and release build."
-Copy-Item -Path "$($release.Output)\lib" -Destination "$($devkit.Ouput)\devkit\lib" -Recurse -Force
-Copy-Item -Path "$($release.Output)\zig.exe" -Destination "$($devkit.Output)\bin\zig.exe" -Force
+$releaseDir = Receive-Job -Job $release
+$devkitDir = Receive-Job -Job $devkit
+Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
+Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
 Write-Host -Object "Copied files."
 Start-Job -WorkingDirectory $ziglang -ScriptBlock {
     $trash = @(
