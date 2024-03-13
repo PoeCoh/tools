@@ -8,7 +8,7 @@ $ErrorActionPreference = [Management.Automation.ActionPreference]::Stop
 trap {
     Write-Host -Object $_.Exception.Message
     Write-Host -Object "Waiting for any running jobs to finish..."
-    Get-Job | Wait-Job | Out-Null
+    Get-Job | Wait-Job | Remove-Job
     Write-Host -Object "Exiting."
     return
 }
@@ -101,6 +101,7 @@ $devkitDir = Receive-Job -Job $devkit
 Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
 Write-Host -Object "Copied files."
+
 $trash = @(
     $releaseDir,
     "$releaseDir.zip",
@@ -120,14 +121,14 @@ Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
 # Build zig with devkit
 Write-Host -Object "Building zig..."
 $buildArgs = @{
-    FilePath         = "$ziglang\devkit\bin\zig.exe"
+    FilePath         = "$devkitDir\bin\zig.exe"
     WorkingDirectory = $zig
     ArgumentList     = @(
         'build'
         '-p'
         'stage3'
         '--search-prefix'
-        "$ziglang\devkit"
+        "$devkitDir"
         '--zig-lib-dir'
         'lib'
         '-Dstatic-llvm'
@@ -141,7 +142,7 @@ $build.WaitForExit()
 
 # fallback to just using release build
 if ($build.ExitCode -ne 0) {
-    Write-Host -Object "Failed. Falling back to release build for ZLS"
+    Write-Host -Object "Failed. Building ZLS with release build."
     $buildFromSource = $false
 }
 
@@ -176,7 +177,7 @@ Write-Host -Object "Built zls."
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
 $newPaths = @(
     "$zls\zig-out\bin"
-    if ($buildFromSource) { "$zig\stage3\bin" } else { "$ziglang\release" }
+    if ($buildFromSource) { "$zig\stage3\bin" }
 )
 foreach ($path in $newPaths) {
     if (-not $paths.Contains($path)) {
@@ -185,18 +186,11 @@ foreach ($path in $newPaths) {
         $Env:Path = $Env:Path + "$path;"
     }
 }
-
-# remove old paths
-$removePath = if ($buildFromSource) { "$ziglang\release" } else { "$zig\stage3\bin" }
-if ($paths.Contains($removePath)) {
-    Write-Host -Object "Removing '$removePath' from path"
-    $paths = $paths -ne $removePath
-}
 [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User')
 
 # Set environment variables
 Write-Host -Object "Setting Environment Variables..."
-if ($buildFromSource -and $Env:ZIG -ne $zig) {
+if ($Env:ZIG -ne $zig) {
     [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User')
     Write-Host -Object "`$Env:ZIG -> '$zig'"
 }
