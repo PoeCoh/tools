@@ -7,9 +7,9 @@ param ()
 $ErrorActionPreference = [Management.Automation.ActionPreference]::Stop
 trap {
     Write-Host -Object $_.Exception.Message -ForegroundColor Red
-    Write-Host -Object "Waiting for any running jobs to finish..."
+    Write-Host -Object 'Waiting for any running jobs to finish...'
     Get-Job | Wait-Job | Remove-Job
-    Write-Host -Object "Exiting."
+    Write-Host -Object 'Exiting.'
     return
 }
 
@@ -19,19 +19,19 @@ $zls = "$ziglang\zls"
 $builtFromSource = $true
 
 function Start-SmartJob {
-    param ( $ScriptBlock, $ArgumentList )
+    param ( $Name = $Null, $ScriptBlock, $ArgumentList )
     if (Get-Command -Name 'Start-ThreadJob' 2>$null) {
-        Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $ArgumentList
+        Start-ThreadJob -Name $Name -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
     }
     else {
-        Start-Job -ScriptBlock $downloadBlock -ArgumentList $ArgumentList
+        Start-Job -Name $Name -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
     }
 }
 
 $downloadBlock = {
-    param ( $Url, $WorkingDirectory, $OutFile )
-    Invoke-WebRequest -Uri $Url -OutFile $OutFile
-    $folders = Expand-Archive -Path $OutFile -DestinationPath $WorkingDirectory -Force -PassThru
+    param ( $Uri, $Destination, $OutFile )
+    Invoke-WebRequest -Uri $Uri -OutFile $OutFile
+    $folders = Expand-Archive -Path $OutFile -DestinationPath $Destination -Force -PassThru
     $folders = $folders -split '\\'
     $index = [array]::IndexOf($folders, 'ziglang') + 1
     $folders[0..$index] -join '\'
@@ -55,9 +55,17 @@ else {
     [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
 }
 
-Write-Host -Object "Fetching devkit and latest release build..."
-$release = Start-SmartJob -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
-$devkit = Start-SmartJob -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+Write-Host -Object 'Fetching devkit and latest release build...'
+$release = Start-SmartJob -Name 'Fetching Release' -ScriptBlock $downloadBlock -ArgumentList @(
+    $releaseUrl
+    $ziglang
+    "$ziglang\release.zip"
+)
+$devkit = Start-SmartJob -Name 'Fetching Devkit' -ScriptBlock $downloadBlock -ArgumentList @(
+    $devkitUrl
+    $ziglang
+    "$ziglang\devkit.zip"
+)
 # if ($threads) {
 #     $release = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
 #     $devKit = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
@@ -99,21 +107,21 @@ $gitZls = Start-Process @gitSplat -PassThru
 
 # Wait for release and devkit to finish
 Wait-Job -Job $release, $devkit | Out-Null
-Write-Host -Object "Got devkit and release build."
+Write-Host -Object 'Got devkit and release build.'
 $releaseDir = Receive-Job -Job $release
 $devkitDir = Receive-Job -Job $devkit
 Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
-Write-Host -Object "Copied files."
+Write-Host -Object 'Copied files.'
 
-Start-SmartJob -ScriptBlock {
+Start-SmartJob -Name 'Removing Files' -ScriptBlock {
     param ( $Files )
     Remove-Item -Path $Files -Recurse -Force
 } -ArgumentList @(
     $releaseDir,
     "$ziglang\devkit.zip",
     "$ziglang\release.zip"
-)
+) | Out-Null
 # if ($threads) {
 #     Start-ThreadJob -ScriptBlock $cleanupBlock -ArgumentList $trash
 # }
@@ -122,11 +130,11 @@ Start-SmartJob -ScriptBlock {
 # }
 
 $gitZig.WaitForExit()
-if ($gitZig.ExitCode -ne 0) { throw "Failed to clone or pull zig." }
+if ($gitZig.ExitCode -ne 0) { throw 'Failed to clone or pull zig.' }
 Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
 
 # Build zig with devkit
-Write-Host -Object "Building zig..."
+Write-Host -Object 'Building zig...'
 $buildArgs = @{
     FilePath         = "$devkitDir\bin\zig.exe"
     WorkingDirectory = $zig
@@ -149,13 +157,13 @@ $build.WaitForExit()
 
 # fallback to just using release build
 if ($build.ExitCode -ne 0) {
-    Write-Host -Object "Failed. Building ZLS with release build."
+    Write-Host -Object 'Failed. Building ZLS with release build.'
     $builtFromSource = $false
 }
 
 if ($build.ExitCode -eq 0) {
-    Write-Host -Object "Built zig."
-    Start-SmartJob -ScriptBlock {
+    Write-Host -Object 'Built zig.'
+    Start-SmartJob -Name 'Removing File' -ScriptBlock {
         param ( $File )
         Remove-Item -Path $File -Recurse -Force
     } -ArgumentList $devkitDir
@@ -166,11 +174,11 @@ if ($build.ExitCode -eq 0) {
 
 # We need git to finish before we can build zls
 $gitZls.WaitForExit()
-if ($gitZls.ExitCode -ne 0) { throw "Failed to clone or pull zls." }
+if ($gitZls.ExitCode -ne 0) { throw 'Failed to clone or pull zls.' }
 Write-Host -Object "$(if ($cloneZls) { 'Cloned' } else { 'Pulled' }) zls."
 
 # build zls
-Write-Host -Object "Building zls..."
+Write-Host -Object 'Building zls...'
 $buildArgs = @{
     ArgumentList     = 'build', '-Doptimize=ReleaseSafe'
     WorkingDirectory = $zls
@@ -181,8 +189,8 @@ $buildArgs = @{
 }
 $building = Start-Process @buildArgs -PassThru -NoNewWindow
 $building.WaitForExit()
-if ($building.ExitCode -ne 0) { throw "Failed building zls." }
-Write-Host -Object "Built zls."
+if ($building.ExitCode -ne 0) { throw 'Failed building zls.' }
+Write-Host -Object 'Built zls.'
 
 # add paths
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
@@ -200,7 +208,7 @@ foreach ($path in $newPaths) {
 [Environment]::SetEnvironmentVariable('Path', "$($paths -join ';');", 'User')
 
 # Set environment variables
-Write-Host -Object "Setting Environment Variables..."
+Write-Host -Object 'Setting Environment Variables...'
 if ($Env:ZIG -ne $zig) {
     [Environment]::SetEnvironmentVariable('ZIG', $zig, 'User')
     Write-Host -Object "`$Env:ZIG -> '$zig'"
@@ -212,4 +220,4 @@ if ($Env:ZLS -ne $zls) {
 
 # Wait for any loose ends to finish
 Get-Job | Wait-Job | Remove-Job
-Write-Host -Object "Finished." -ForegroundColor Green
+Write-Host -Object 'Finished.' -ForegroundColor Green
