@@ -33,7 +33,12 @@ $cleanupBlock = {
     Remove-Item -Path $items -Recurse -Force
 }
 
-$threads = $null -ne (Get-Command -Name 'Start-ThreadJob')
+$threads = try {
+    if (Get-Command -Name 'Start-ThreadJob') { $true }
+    else { $false }
+} catch {
+    $false
+}
 
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
