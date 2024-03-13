@@ -28,13 +28,16 @@ $devkitUrl = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu-$ve
 
 #Release URL
 $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
-$releaseURL = if ($PSVersionTable.PSVersion.Major -eq 5) {
+$releaseUrl = if ($PSVersionTable.PSVersion.Major -eq 5) {
     $response.Links.Where({ $_.innerHTML -ne 'minisig' -and $_.href -match 'builds/zig-windows-x86_64' }).href
 }
 else {
     $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
     [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
 }
+
+Write-Host -Object "Dev: $devkitUrl"
+Write-Host -Object "Release: $releaseUrl"
 
 function Get-Folder {
     param ( [string]$Path )
@@ -46,6 +49,7 @@ function Get-Folder {
 
 Write-Host -Object "Fetching latest release build..."
 if (Get-Command -Name 'Start-ThreadJob') {
+    Write-Host -Object "Using Start-ThreadJob"
     $release = Start-ThreadJob -ScriptBlock {
         Invoke-WebRequest -Uri $using:releaseURL -OutFile "$using:ziglang\release.zip"
         Get-Folder -Path "$using:ziglang\release.zip"
