@@ -6,7 +6,7 @@
 param ()
 $ErrorActionPreference = [Management.Automation.ActionPreference]::Stop
 trap {
-    Write-Host -Object $_.Exception.Message
+    Write-Host -Object $_.Exception.Message -ForegroundColor Red
     Write-Host -Object "Waiting for any running jobs to finish..."
     Get-Job | Wait-Job | Remove-Job
     Write-Host -Object "Exiting."
@@ -16,8 +16,17 @@ trap {
 $ziglang = "$Env:LOCALAPPDATA\ziglang"
 $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
-$buildFromSource = $true
+$builtFromSource = $true
 
+function Start-SmartJob {
+    param ( $ScriptBlock, $ArgumentList )
+    if (Get-Command -Name 'Start-ThreadJob' 2>$null) {
+        Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $ArgumentList
+    }
+    else {
+        Start-Job -ScriptBlock $downloadBlock -ArgumentList $ArgumentList
+    }
+}
 
 $downloadBlock = {
     param ( $Url, $WorkingDirectory, $OutFile )
@@ -26,18 +35,6 @@ $downloadBlock = {
     $folders = $folders -split '\\'
     $index = [array]::IndexOf($folders, 'ziglang') + 1
     $folders[0..$index] -join '\'
-}
-
-$cleanupBlock = {
-    param ( $items )
-    Remove-Item -Path $items -Recurse -Force
-}
-
-$threads = try {
-    if (Get-Command -Name 'Start-ThreadJob') { $true }
-    else { $false }
-} catch {
-    $false
 }
 
 # create ziglang directory if it doesn't exist
@@ -59,14 +56,16 @@ else {
 }
 
 Write-Host -Object "Fetching devkit and latest release build..."
-if ($threads) {
-    $release = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
-    $devKit = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
-}
-else {
-    $release = Start-Job -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
-    $devkit = Start-Job -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
-}
+$release = Start-SmartJob -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
+$devkit = Start-SmartJob -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+# if ($threads) {
+#     $release = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
+#     $devKit = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+# }
+# else {
+#     $release = Start-Job -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
+#     $devkit = Start-Job -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+# }
 
 $gitSplat = @{
     FilePath         = 'git'
@@ -107,17 +106,20 @@ Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
 Write-Host -Object "Copied files."
 
-$trash = @(
+Start-SmartJob -ScriptBlock {
+    param ( $Files )
+    Remove-Item -Path $Files -Recurse -Force
+} -ArgumentList @(
     $releaseDir,
-    "$releaseDir.zip",
-    "$devkitDir.zip"
+    "$ziglang\devkit.zip",
+    "$ziglang\release.zip"
 )
-if ($threads) {
-    Start-ThreadJob -ScriptBlock $cleanupBlock -ArgumentList $trash
-}
-else {
-    Start-Job -ScriptBlock $cleanupBlock -ArgumentList $trash
-}
+# if ($threads) {
+#     Start-ThreadJob -ScriptBlock $cleanupBlock -ArgumentList $trash
+# }
+# else {
+#     Start-Job -ScriptBlock $cleanupBlock -ArgumentList $trash
+# }
 
 $gitZig.WaitForExit()
 if ($gitZig.ExitCode -ne 0) { throw "Failed to clone or pull zig." }
@@ -133,7 +135,7 @@ $buildArgs = @{
         '-p'
         'stage3'
         '--search-prefix'
-        "$devkitDir"
+        $devkitDir
         '--zig-lib-dir'
         'lib'
         '-Dstatic-llvm'
@@ -148,14 +150,18 @@ $build.WaitForExit()
 # fallback to just using release build
 if ($build.ExitCode -ne 0) {
     Write-Host -Object "Failed. Building ZLS with release build."
-    $buildFromSource = $false
+    $builtFromSource = $false
 }
 
 if ($build.ExitCode -eq 0) {
     Write-Host -Object "Built zig."
-    Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-        Remove-Item -Path "$using:ziglang\devkit" -Recurse -Force
-    }
+    Start-SmartJob -ScriptBlock {
+        param ( $File )
+        Remove-Item -Path $File -Recurse -Force
+    } -ArgumentList $devkitDir
+    # Start-Job -WorkingDirectory $ziglang -ScriptBlock {
+    #     Remove-Item -Path "$using:ziglang\devkit" -Recurse -Force
+    # }
 }
 
 # We need git to finish before we can build zls
@@ -169,7 +175,7 @@ $buildArgs = @{
     ArgumentList     = 'build', '-Doptimize=ReleaseSafe'
     WorkingDirectory = $zls
     FilePath         = $(
-        if ($buildFromSource) { "$zig\stage3\bin\zig.exe" }
+        if ($builtFromSource) { "$zig\stage3\bin\zig.exe" }
         else { "$ziglang\release\zig.exe" }
     )
 }
@@ -182,7 +188,7 @@ Write-Host -Object "Built zls."
 $paths = [Environment]::GetEnvironmentVariable('Path', 'User').TrimEnd(';').Split(';').TrimEnd('\')
 $newPaths = @(
     "$zls\zig-out\bin"
-    if ($buildFromSource) { "$zig\stage3\bin" }
+    if ($builtFromSource) { "$zig\stage3\bin" }
 )
 foreach ($path in $newPaths) {
     if (-not $paths.Contains($path)) {
@@ -203,5 +209,7 @@ if ($Env:ZLS -ne $zls) {
     [Environment]::SetEnvironmentVariable('ZLS', $zls, 'User')
     Write-Host -Object "`$Env:ZLS -> '$zls'"
 }
-Get-Job | Wait-Job | Out-Null
+
+# Wait for any loose ends to finish
+Get-Job | Wait-Job | Remove-Job
 Write-Host -Object "Finished." -ForegroundColor Green
