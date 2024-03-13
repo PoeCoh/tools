@@ -2,6 +2,9 @@
 # Based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
 # To pass flags to the script, append them like this:
 # PS> iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Debug"
+
+# I don't want to the "IEX is dangerous" argument, a large chunk of linux
+# install scripts follow this pattern and the world hasn't burned yet.
 [CmdletBinding()]
 param ()
 $ErrorActionPreference = [Management.Automation.ActionPreference]::Stop
@@ -66,14 +69,6 @@ $devkit = Start-SmartJob -Name 'Fetching Devkit' -ScriptBlock $downloadBlock -Ar
     $ziglang
     "$ziglang\devkit.zip"
 )
-# if ($threads) {
-#     $release = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
-#     $devKit = Start-ThreadJob -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
-# }
-# else {
-#     $release = Start-Job -ScriptBlock $downloadBlock -ArgumentList $releaseUrl, $ziglang, "$ziglang\release.zip"
-#     $devkit = Start-Job -ScriptBlock $downloadBlock -ArgumentList $devkitUrl, $ziglang, "$ziglang\devkit.zip"
-# }
 
 $gitSplat = @{
     FilePath         = 'git'
@@ -118,16 +113,8 @@ Start-SmartJob -Name 'Removing Files' -ScriptBlock {
     param ( $Files )
     Remove-Item -Path $Files -Recurse -Force
 } -ArgumentList @(
-    $releaseDir,
-    "$ziglang\devkit.zip",
-    "$ziglang\release.zip"
+    @( $releaseDir, "$ziglang\devkit.zip", "$ziglang\release.zip" )
 ) | Out-Null
-# if ($threads) {
-#     Start-ThreadJob -ScriptBlock $cleanupBlock -ArgumentList $trash
-# }
-# else {
-#     Start-Job -ScriptBlock $cleanupBlock -ArgumentList $trash
-# }
 
 $gitZig.WaitForExit()
 if ($gitZig.ExitCode -ne 0) { throw 'Failed to clone or pull zig.' }
@@ -157,7 +144,7 @@ $build.WaitForExit()
 
 # fallback to just using release build
 if ($build.ExitCode -ne 0) {
-    Write-Host -Object 'Failed. Building ZLS with release build.'
+    Write-Host -Object 'Failed. Building ZLS with release build for now.'
     $builtFromSource = $false
 }
 
@@ -166,10 +153,7 @@ if ($build.ExitCode -eq 0) {
     Start-SmartJob -Name 'Removing File' -ScriptBlock {
         param ( $File )
         Remove-Item -Path $File -Recurse -Force
-    } -ArgumentList $devkitDir
-    # Start-Job -WorkingDirectory $ziglang -ScriptBlock {
-    #     Remove-Item -Path "$using:ziglang\devkit" -Recurse -Force
-    # }
+    } -ArgumentList $devkitDir | Out-Null
 }
 
 # We need git to finish before we can build zls
