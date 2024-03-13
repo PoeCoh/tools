@@ -107,7 +107,6 @@ $releaseDir = Receive-Job -Job $release
 $devkitDir = Receive-Job -Job $devkit
 Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
-Write-Host -Object 'Copied files.'
 
 Start-SmartJob -Name 'Removing Files' -ScriptBlock {
     param ( $Files )
