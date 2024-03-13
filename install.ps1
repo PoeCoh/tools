@@ -109,11 +109,9 @@ Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
 
 Start-SmartJob -Name 'Removing Files' -ScriptBlock {
-    param ( $Files )
-    Remove-Item -Path $Files -Recurse -Force
-} -ArgumentList @(
-    @( $releaseDir, "$ziglang\devkit.zip", "$ziglang\release.zip" )
-) | Out-Null
+    param ( $F1, $F2, $F3 )
+    Remove-Item -Path $F1, $F2, $F3 -Recurse -Force
+} -ArgumentList $releaseDir, "$ziglang\devkit.zip", "$ziglang\release.zip" | Out-Null
 
 $gitZig.WaitForExit()
 if ($gitZig.ExitCode -ne 0) { throw 'Failed to clone or pull zig.' }
