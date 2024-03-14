@@ -1,12 +1,12 @@
 # PS> iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)}"
 # Based off of https://github.com/ziglang/zig/wiki/Building-Zig-on-Windows
 # To pass flags to the script, append them like this:
-# PS> iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Debug"
+# PS> iex "& {$(irm git.poecoh.com/tools/zig/install.ps1)} -Commit 778ab76 -Debug"
 
 # I don't want to hear the "IEX is dangerous" argument, a large chunk of linux
 # install scripts follow this pattern and the world hasn't burned yet.
 [CmdletBinding()]
-param ()
+param ( $Commit = $null )
 $ErrorActionPreference = [Management.Automation.ActionPreference]::Stop
 trap {
     Write-Host -Object $_.Exception.Message -ForegroundColor Red
@@ -21,6 +21,7 @@ $zig = "$ziglang\zig"
 $zls = "$ziglang\zls"
 $builtFromSource = $true
 
+# Split off tasks to avoid bottlenecking
 function Start-SmartJob {
     param ( $Name = $Null, $ScriptBlock, $ArgumentList )
     if (Get-Command -Name 'Start-ThreadJob' 2>$null) {
@@ -43,10 +44,16 @@ $downloadBlock = {
 # create ziglang directory if it doesn't exist
 New-Item -Path $ziglang -ItemType Directory -Force | Out-Null
 
-# DevKit URL
-$raw = Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/ziglang/zig/master/ci/x86_64-windows-debug.ps1'
-$version = [regex]::new('(?s)(?<=\$TARGET-).+?(?="\n)').Match($raw).Value
-$devkitUrl = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu-$version.zip"
+# DevKit URL if no commit is specified, start downloading right away
+if ($null -eq $Commit) {
+    $raw = Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/ziglang/zig/master/ci/x86_64-windows-debug.ps1'
+    $version = [regex]::new('(?s)(?<=\$TARGET-).+?(?="\n)').Match($raw).Value
+    $devkitUrl = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu-$version.zip"
+    Write-Host -Object 'Fetching devkit...'
+    $devkit = Start-SmartJob -Name 'Fetching Devkit' -ScriptBlock $downloadBlock -ArgumentList @(
+        $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+    )
+}
 
 #Release URL
 $response = Invoke-WebRequest -Uri 'https://ziglang.org/download#release-master'
@@ -57,17 +64,9 @@ else {
     $href = $response.Links.Where({ $_ -match 'builds/zig-windows-x86_64' -and $_ -notmatch 'minisig' }).outerHTML
     [regex]::new('<a href=(https://[^">]+)>').Match($href).Groups[1].Value
 }
-
-Write-Host -Object 'Fetching devkit and latest release build...'
+Write-Host -Object 'Fetching latest release build...'
 $release = Start-SmartJob -Name 'Fetching Release' -ScriptBlock $downloadBlock -ArgumentList @(
-    $releaseUrl
-    $ziglang
-    "$ziglang\release.zip"
-)
-$devkit = Start-SmartJob -Name 'Fetching Devkit' -ScriptBlock $downloadBlock -ArgumentList @(
-    $devkitUrl
-    $ziglang
-    "$ziglang\devkit.zip"
+    $releaseUrl, $ziglang, "$ziglang\release.zip"
 )
 
 $gitSplat = @{
@@ -80,16 +79,6 @@ $gitSplat = @{
     )
 }
 
-# Start cloning/pulling zig
-$cloneZig = (Test-Path -Path "$zig\.git") -eq $false
-$gitSplat.WorkingDirectory = if ($cloneZig) { $ziglang } else { $zig }
-$gitSplat.ArgumentList = $(
-    if ($cloneZig) { 'clone', 'https://github.com/ziglang/zig' }
-    else { 'pull', 'origin' }
-)
-Write-Host -Object "$(if ($cloneZig) { 'Cloning' } else { 'Pulling' }) zig..."
-$gitZig = Start-Process @gitSplat -PassThru
-
 # Start cloning/pulling zls
 $cloneZls = (Test-Path -Path "$zls\.git") -eq $false
 $gitSplat.WorkingDirectory = if ($cloneZls) { $ziglang } else { $zls }
@@ -100,7 +89,39 @@ $gitSplat.ArgumentList = $(
 Write-Host -Object "$(if ($cloneZls) { 'Cloning' } else { 'Pulling' }) zls..."
 $gitZls = Start-Process @gitSplat -PassThru
 
-# Wait for release and devkit to finish
+# Start cloning/pulling zig
+$cloneZig = (Test-Path -Path "$zig\.git") -eq $false
+$gitSplat.WorkingDirectory = if ($cloneZig) { $ziglang } else { $zig }
+$gitSplat.ArgumentList = $(
+    if ($cloneZig) { 'clone', 'https://github.com/ziglang/zig' }
+    else { 'pull', 'origin' }
+)
+Write-Host -Object "$(if ($cloneZig) { 'Cloning' } else { 'Pulling' }) zig..."
+$gitZig = Start-Process @gitSplat -PassThru
+
+if ($null -ne $Commit) {
+    # Wait for git to finish
+    $gitZig.WaitForExit()
+    if ($gitZig.ExitCode -ne 0) { throw 'Failed to clone or pull zig.' }
+    Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
+
+    # Set HEAD to commit
+    $gitCommit = Start-Process @gitSplat -PassThru -ArgumentList @(
+        'reset', '--hard', $Commit
+    )
+    $gitCommit.WaitForExit()
+    if ($gitCommit.ExitCode -ne 0) { throw "Failed to set HEAD to '$Commit'." }
+    Write-Host -Object "Set HEAD to '$Commit'."
+
+    # Get devkit
+    $raw = (Get-Content -Path "$zig\ci\x86_64-windows-debug.ps1")[1]
+    $version = [regex]::new('(?s)(?<=\$TARGET-).+?(?=")').Match($raw).Value
+    $devkitUrl = "https://ziglang.org/deps/zig+llvm+lld+clang-x86_64-windows-gnu-$version.zip"
+    Write-Host -Object 'Fetching devkit...'
+    $devkit = Start-SmartJob -Name 'Fetching Devkit' -ScriptBlock $downloadBlock -ArgumentList @(
+        $devkitUrl, $ziglang, "$ziglang\devkit.zip"
+    )
+}
 Wait-Job -Job $release, $devkit | Out-Null
 Write-Host -Object 'Got devkit and release build.'
 $releaseDir = Receive-Job -Job $release
@@ -108,14 +129,18 @@ $devkitDir = Receive-Job -Job $devkit
 Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
 
+# Clear up now useless files
 Start-SmartJob -Name 'Removing Files' -ScriptBlock {
     param ( $F1, $F2, $F3 )
     Remove-Item -Path $F1, $F2, $F3 -Recurse -Force
 } -ArgumentList $releaseDir, "$ziglang\devkit.zip", "$ziglang\release.zip" | Out-Null
 
-$gitZig.WaitForExit()
-if ($gitZig.ExitCode -ne 0) { throw 'Failed to clone or pull zig.' }
-Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
+# Wait for git to finish
+if ($null -eq $Commit) {
+    $gitZig.WaitForExit()
+    if ($gitZig.ExitCode -ne 0) { throw 'Failed to clone or pull zig.' }
+    Write-Host -Object "$(if ($cloneZig) { 'Cloned' } else { 'Pulled' }) zig."
+}
 
 # Build zig with devkit
 Write-Host -Object 'Building zig...'
