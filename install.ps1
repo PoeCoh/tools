@@ -126,7 +126,7 @@ Wait-Job -Job $release, $devkit | Out-Null
 Write-Host -Object 'Got devkit and release build.'
 $releaseDir = Receive-Job -Job $release
 $devkitDir = Receive-Job -Job $devkit
-Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir\lib" -Recurse -Force
+Copy-Item -Path "$releaseDir\lib" -Destination "$devkitDir" -Force
 Copy-Item -Path "$releaseDir\zig.exe" -Destination "$devkitDir\bin\zig.exe" -Force
 
 # Clear up now useless files
